@@ -1,7 +1,7 @@
--- Check for minimum Neovim version (0.12+ compatible)
+-- Check for minimum Neovim version (0.11+ compatible)
 local ver = vim.version()
-if ver.major == 0 and ver.minor < 12 then
-  vim.api.nvim_echo({{"This configuration requires Neovim 0.12 or newer", "ErrorMsg"}}, true, {})
+if ver.major == 0 and ver.minor < 11 then
+  vim.api.nvim_echo({{"This configuration requires Neovim 0.11 or newer", "ErrorMsg"}}, true, {})
   return
 end
 
@@ -122,6 +122,25 @@ vim.api.nvim_create_autocmd('FileType', {
     vim.opt_local.expandtab = false   -- Go uses tabs by default
     vim.opt_local.shiftwidth = 8
     vim.opt_local.tabstop = 8
+  end
+})
+
+-- TypeScript/JavaScript/React settings
+vim.api.nvim_create_autocmd('FileType', {
+  group = lang_group,
+  pattern = {'typescript', 'typescriptreact', 'javascript', 'javascriptreact'},
+  callback = function()
+    vim.opt_local.shiftwidth = 2
+    vim.opt_local.tabstop = 2
+    vim.opt_local.expandtab = true
+    vim.opt_local.colorcolumn = '100'
+    
+    -- React-specific keymaps
+    local bufopts = { noremap = true, silent = true, buffer = true }
+    vim.keymap.set('n', '<leader>rf', '<cmd>EslintFixAll<cr>', 
+      vim.tbl_extend('force', bufopts, { desc = "ESLint fix all" }))
+    vim.keymap.set('n', '<leader>ro', '<cmd>OrganizeImports<cr>', 
+      vim.tbl_extend('force', bufopts, { desc = "Organize imports" }))
   end
 })
 
@@ -296,6 +315,7 @@ require("lazy").setup({
         { "<leader>f", group = "flutter" },
         { "<leader>d", group = "diagnostics" },
         { "<leader>g", group = "git" },
+        { "<leader>r", group = "react" },
       },
     },
   },
@@ -392,7 +412,10 @@ require("lazy").setup({
     event = { "BufReadPost", "BufNewFile" },
     config = function()
       require("nvim-treesitter.configs").setup({
-        ensure_installed = { "lua", "rust", "go", "c", "cpp", "dart", "python", "javascript", "typescript" },
+        ensure_installed = { 
+          "lua", "rust", "go", "c", "cpp", "dart", "python", 
+          "javascript", "typescript", "tsx", "json", "html", "css"
+        },
         highlight = { 
           enable = true,
           additional_vim_regex_highlighting = false,
@@ -409,6 +432,21 @@ require("lazy").setup({
         },
       })
     end
+  },
+  
+  -- Auto-close and auto-rename JSX/HTML tags - FIXED: Use standalone setup
+  {
+    "windwp/nvim-ts-autotag",
+    ft = { "html", "javascript", "javascriptreact", "typescript", "typescriptreact", "xml" },
+    config = function()
+      require('nvim-ts-autotag').setup({
+        opts = {
+          enable_close = true,
+          enable_rename = true,
+          enable_close_on_slash = false,
+        },
+      })
+    end,
   },
   
   -- Indentation guides
@@ -435,7 +473,16 @@ require("lazy").setup({
     "williamboman/mason-lspconfig.nvim",
     event = { "BufReadPre", "BufNewFile" },
     opts = {
-      ensure_installed = { "rust_analyzer", "clangd", "gopls", "pyright" }
+      ensure_installed = { 
+        "rust_analyzer", 
+        "clangd", 
+        "gopls", 
+        "pyright",
+        "ts_ls",  -- TypeScript/JavaScript LSP
+        "eslint"  -- ESLint integration
+      },
+      -- Disable automatic server setup (we use vim.lsp.config)
+      automatic_installation = false,
     },
     dependencies = {
       "williamboman/mason.nvim",
@@ -458,6 +505,70 @@ require("lazy").setup({
     dependencies = { "rafamadriz/friendly-snippets" },
     config = function()
       require("luasnip.loaders.from_vscode").lazy_load()
+      
+      -- Add custom React snippets
+      local ls = require("luasnip")
+      local s = ls.snippet
+      local t = ls.text_node
+      local i = ls.insert_node
+      
+      ls.add_snippets("typescriptreact", {
+        s("rfc", {
+          t({"import React from 'react';", "", "interface "}),
+          i(1, "Component"),
+          t({"Props {", "  "}),
+          i(2, "// props"),
+          t({"", "}", "", "const "}),
+          i(3, "Component"),
+          t({": React.FC<"}),
+          i(4, "Component"),
+          t({"Props> = (props) => {", "  return (", "    <div>"}),
+          i(5, "Component"),
+          t({"</div>", "  );", "};", "", "export default "}),
+          i(6, "Component"),
+          t(";"),
+        }),
+        s("useh", {
+          t("const ["),
+          i(1, "state"),
+          t(", set"),
+          i(2, "State"),
+          t("] = useState"),
+          i(3, "<"),
+          i(4, "Type"),
+          t(">("),
+          i(5, "initialValue"),
+          t(");"),
+        }),
+        s("usee", {
+          t({"useEffect(() => {", "  "}),
+          i(1, "// effect"),
+          t({"", "}, ["}),
+          i(2, "deps"),
+          t("]);"),
+        }),
+      })
+      
+      ls.add_snippets("javascriptreact", {
+        s("rfc", {
+          t({"import React from 'react';", "", "const "}),
+          i(1, "Component"),
+          t({" = (props) => {", "  return (", "    <div>"}),
+          i(2, "Component"),
+          t({"</div>", "  );", "};", "", "export default "}),
+          i(3, "Component"),
+          t(";"),
+        }),
+        s("useh", {
+          t("const ["),
+          i(1, "state"),
+          t(", set"),
+          i(2, "State"),
+          t("] = useState("),
+          i(3, "initialValue"),
+          t(");"),
+        }),
+      })
     end,
   },
   
@@ -483,10 +594,10 @@ require("lazy").setup({
           end,
         },
         sources = {
-          { name = 'nvim_lsp' },
-          { name = 'luasnip' },
-          { name = 'path' },
-          { name = 'buffer', keyword_length = 3 },
+          { name = 'nvim_lsp', priority = 1000 },
+          { name = 'luasnip', priority = 750 },
+          { name = 'path', priority = 500 },
+          { name = 'buffer', keyword_length = 3, priority = 250 },
         },
         mapping = cmp.mapping.preset.insert({
           ['<C-b>'] = cmp.mapping.scroll_docs(-4),
@@ -589,7 +700,38 @@ require("lazy").setup({
 -- LSP Configuration
 -------------------------------------------------------------------------------
 
--- Diagnostic configuration
+-- CRITICAL: Prevent angularls from ever starting
+-- This must come before any other LSP configuration
+vim.g.lsp_angularls_enable = false
+
+-- Block angularls configuration completely
+vim.lsp.config('angularls', {
+  enabled = false,
+  autostart = false,
+  filetypes = {},  -- Remove all filetypes
+})
+
+-- Additional safety: Stop angularls if it somehow gets attached
+vim.api.nvim_create_autocmd("LspAttach", {
+  callback = function(args)
+    local client = vim.lsp.get_client_by_id(args.data.client_id)
+    if client and client.name == "angularls" then
+      vim.schedule(function()
+        vim.lsp.stop_client(client.id)
+        vim.notify("Stopped unwanted angularls client", vim.log.levels.WARN)
+      end)
+    end
+  end,
+})
+
+-- Block FileType autocmd that might trigger angularls
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = { "typescript", "typescriptreact", "typescript.tsx", "html" },
+  callback = function()
+    -- Ensure angularls doesn't start for these filetypes
+    vim.b.lsp_angularls_enable = false
+  end,
+})-- Diagnostic configuration
 vim.diagnostic.config({
   virtual_text = { 
     prefix = '●',
@@ -703,9 +845,10 @@ require("flutter-tools").setup({
   },
 })
 
--- Use new vim.lsp.config API for Neovim 0.11+
+-- Rust Analyzer with new API
 vim.lsp.config('rust_analyzer', {
   cmd = { 'rust-analyzer' },
+  filetypes = { 'rust' },
   root_markers = { 'Cargo.toml', 'rust-project.json' },
   capabilities = capabilities,
   on_attach = on_attach,
@@ -723,6 +866,7 @@ vim.lsp.config('rust_analyzer', {
   },
 })
 
+-- Clangd for C/C++ with new API
 vim.lsp.config('clangd', {
   cmd = {
     "clangd",
@@ -733,6 +877,7 @@ vim.lsp.config('clangd', {
     "--function-arg-placeholders",
     "--fallback-style=llvm",
   },
+  filetypes = { 'c', 'cpp', 'objc', 'objcpp', 'cuda' },
   root_markers = {
     'compile_commands.json',
     'compile_flags.txt',
@@ -745,8 +890,10 @@ vim.lsp.config('clangd', {
   on_attach = on_attach,
 })
 
+-- Go LSP with new API
 vim.lsp.config('gopls', {
   cmd = { 'gopls' },
+  filetypes = { 'go', 'gomod', 'gowork', 'gotmpl' },
   root_markers = { 'go.work', 'go.mod', '.git' },
   capabilities = capabilities,
   on_attach = on_attach,
@@ -764,8 +911,10 @@ vim.lsp.config('gopls', {
   },
 })
 
+-- Python LSP with new API
 vim.lsp.config('pyright', {
   cmd = { 'pyright-langserver', '--stdio' },
+  filetypes = { 'python' },
   root_markers = { 'pyproject.toml', 'setup.py', 'setup.cfg', 'requirements.txt', 'Pipfile', '.git' },
   capabilities = capabilities,
   on_attach = on_attach,
@@ -781,11 +930,142 @@ vim.lsp.config('pyright', {
   }
 })
 
--- Enable LSP servers for their respective filetypes
+-- TypeScript/JavaScript LSP with React support
+vim.lsp.config('ts_ls', {
+  cmd = { 'typescript-language-server', '--stdio' },
+  filetypes = { 
+    'javascript', 
+    'javascriptreact', 
+    'javascript.jsx', 
+    'typescript', 
+    'typescriptreact', 
+    'typescript.tsx' 
+  },
+  root_markers = { 'package.json', 'tsconfig.json', 'jsconfig.json', '.git' },
+  capabilities = capabilities,
+  on_attach = function(client, bufnr)
+    -- Call default on_attach
+    on_attach(client, bufnr)
+    
+    -- Disable tsserver formatting in favor of prettier/eslint
+    client.server_capabilities.documentFormattingProvider = false
+    client.server_capabilities.documentRangeFormattingProvider = false
+  end,
+  settings = {
+    typescript = {
+      inlayHints = {
+        includeInlayParameterNameHints = 'all',
+        includeInlayParameterNameHintsWhenArgumentMatchesName = false,
+        includeInlayFunctionParameterTypeHints = true,
+        includeInlayVariableTypeHints = true,
+        includeInlayPropertyDeclarationTypeHints = true,
+        includeInlayFunctionLikeReturnTypeHints = true,
+        includeInlayEnumMemberValueHints = true,
+      },
+      suggest = {
+        includeCompletionsForModuleExports = true,
+      },
+    },
+    javascript = {
+      inlayHints = {
+        includeInlayParameterNameHints = 'all',
+        includeInlayParameterNameHintsWhenArgumentMatchesName = false,
+        includeInlayFunctionParameterTypeHints = true,
+        includeInlayVariableTypeHints = true,
+        includeInlayPropertyDeclarationTypeHints = true,
+        includeInlayFunctionLikeReturnTypeHints = true,
+        includeInlayEnumMemberValueHints = true,
+      },
+      suggest = {
+        includeCompletionsForModuleExports = true,
+      },
+    },
+  },
+})
+
+
+
+-- ESLint LSP for linting and formatting
+vim.lsp.config('eslint', {
+  cmd = { 'vscode-eslint-language-server', '--stdio' },
+  filetypes = { 
+    'javascript', 
+    'javascriptreact', 
+    'javascript.jsx', 
+    'typescript', 
+    'typescriptreact', 
+    'typescript.tsx',
+    'vue',
+    'svelte',
+    'astro'
+  },
+  root_markers = { 
+    '.eslintrc', 
+    '.eslintrc.js', 
+    '.eslintrc.cjs',
+    '.eslintrc.yaml',
+    '.eslintrc.yml',
+    '.eslintrc.json', 
+    'eslint.config.js',
+    'package.json' 
+  },
+  capabilities = capabilities,
+  on_attach = function(client, bufnr)
+    on_attach(client, bufnr)
+    
+    -- Enable format on save for ESLint
+    vim.api.nvim_create_autocmd("BufWritePre", {
+      buffer = bufnr,
+      command = "EslintFixAll",
+    })
+  end,
+  settings = {
+    codeAction = {
+      disableRuleComment = {
+        enable = true,
+        location = "separateLine"
+      },
+      showDocumentation = {
+        enable = true
+      }
+    },
+    codeActionOnSave = {
+      enable = true,
+      mode = "all"
+    },
+    format = true,
+    nodePath = "",
+    onIgnoredFiles = "off",
+    packageManager = "npm",
+    quiet = false,
+    rulesCustomizations = {},
+    run = "onType",
+    useESLintClass = false,
+    validate = "on",
+    workingDirectory = {
+      mode = "location"
+    }
+  }
+})
+
+-- Enable LSP servers
 vim.lsp.enable('rust_analyzer')
 vim.lsp.enable('clangd')
 vim.lsp.enable('gopls')
 vim.lsp.enable('pyright')
+vim.lsp.enable('ts_ls')
+vim.lsp.enable('eslint')
+
+-- Command for organizing imports (TypeScript/JavaScript)
+vim.api.nvim_create_user_command('OrganizeImports', function()
+  local params = {
+    command = "_typescript.organizeImports",
+    arguments = {vim.api.nvim_buf_get_name(0)},
+  }
+  vim.lsp.buf.execute_command(params)
+end, {
+  desc = "Organize imports (TypeScript)"
+})
 
 -- Autopairs configuration
 require("nvim-autopairs").setup({
@@ -795,7 +1075,7 @@ require("nvim-autopairs").setup({
     map = '<M-e>',
     chars = { '{', '[', '(', '"', "'" },
     pattern = [=[[%'%"%)%>%]%)%}%,]]=],
-    end_key = '$',
+    end_key = ',',
     keys = 'qwertyuiopzxcvbnmasdfghjkl',
     check_comma = true,
     highlight = 'Search',
@@ -959,4 +1239,3 @@ function! LightlineFilename()
   return filename . modified
 endfunction
 ]])
-
