@@ -930,7 +930,7 @@ vim.lsp.config('pyright', {
   }
 })
 
--- TypeScript/JavaScript LSP with React support
+-- TypeScript/JavaScript LSP with React support - FIXED FORMATTING
 vim.lsp.config('ts_ls', {
   cmd = { 'typescript-language-server', '--stdio' },
   filetypes = { 
@@ -947,12 +947,17 @@ vim.lsp.config('ts_ls', {
     -- Call default on_attach
     on_attach(client, bufnr)
     
-    -- Disable tsserver formatting in favor of prettier/eslint
-    client.server_capabilities.documentFormattingProvider = false
-    client.server_capabilities.documentRangeFormattingProvider = false
+    -- IMPORTANT: Enable formatting for TypeScript LSP
+    client.server_capabilities.documentFormattingProvider = true
+    client.server_capabilities.documentRangeFormattingProvider = true
   end,
   settings = {
     typescript = {
+      format = {
+        indentSize = 2,
+        convertTabsToSpaces = true,
+        tabSize = 2,
+      },
       inlayHints = {
         includeInlayParameterNameHints = 'all',
         includeInlayParameterNameHintsWhenArgumentMatchesName = false,
@@ -967,6 +972,11 @@ vim.lsp.config('ts_ls', {
       },
     },
     javascript = {
+      format = {
+        indentSize = 2,
+        convertTabsToSpaces = true,
+        tabSize = 2,
+      },
       inlayHints = {
         includeInlayParameterNameHints = 'all',
         includeInlayParameterNameHintsWhenArgumentMatchesName = false,
@@ -983,8 +993,6 @@ vim.lsp.config('ts_ls', {
   },
 })
 
-
-
 -- ESLint LSP for linting and formatting
 vim.lsp.config('eslint', {
   cmd = { 'vscode-eslint-language-server', '--stdio' },
@@ -995,31 +1003,68 @@ vim.lsp.config('eslint', {
     'typescript', 
     'typescriptreact', 
     'typescript.tsx',
-    'vue',
-    'svelte',
-    'astro'
   },
   root_markers = { 
+    'eslint.config.js',
     '.eslintrc', 
     '.eslintrc.js', 
     '.eslintrc.cjs',
     '.eslintrc.yaml',
     '.eslintrc.yml',
     '.eslintrc.json', 
-    'eslint.config.js',
     'package.json' 
   },
   capabilities = capabilities,
   on_attach = function(client, bufnr)
     on_attach(client, bufnr)
     
-    -- Enable format on save for ESLint
+    -- Create buffer-local command for ESLint fix
+    vim.api.nvim_buf_create_user_command(bufnr, 'EslintFixAll', function()
+      vim.lsp.buf.code_action({
+        context = {
+          only = { 'source.fixAll.eslint' },
+          diagnostics = {},
+        },
+        apply = true,
+      })
+    end, {
+      desc = 'Fix all ESLint issues'
+    })
+    
+    -- Format on save (more robust)
     vim.api.nvim_create_autocmd("BufWritePre", {
       buffer = bufnr,
-      command = "EslintFixAll",
+      callback = function()
+        -- Only try to fix if ESLint is ready
+        if client.is_stopped() then
+          return
+        end
+        
+        local params = {
+          textDocument = vim.lsp.util.make_text_document_params(),
+          context = { only = { 'source.fixAll.eslint' } },
+        }
+        
+        local result = vim.lsp.buf_request_sync(bufnr, 'textDocument/codeAction', params, 1000)
+        if not result then return end
+        
+        for _, res in pairs(result) do
+          for _, action in pairs(res.result or {}) do
+            if action.edit then
+              vim.lsp.util.apply_workspace_edit(action.edit, client.offset_encoding)
+            end
+          end
+        end
+      end,
     })
   end,
   settings = {
+    validate = 'on',
+    packageManager = 'npm',
+    useESLintClass = false,
+    experimental = {
+      useFlatConfig = true,
+    },
     codeAction = {
       disableRuleComment = {
         enable = true,
@@ -1030,24 +1075,19 @@ vim.lsp.config('eslint', {
       }
     },
     codeActionOnSave = {
-      enable = true,
+      enable = false, -- We handle this manually
       mode = "all"
     },
     format = true,
-    nodePath = "",
-    onIgnoredFiles = "off",
-    packageManager = "npm",
     quiet = false,
+    onIgnoredFiles = "off",
     rulesCustomizations = {},
     run = "onType",
-    useESLintClass = false,
-    validate = "on",
     workingDirectory = {
-      mode = "location"
+      mode = "auto"
     }
   }
 })
-
 -- Enable LSP servers
 vim.lsp.enable('rust_analyzer')
 vim.lsp.enable('clangd')
@@ -1092,7 +1132,10 @@ cmp.event:on("confirm_done", cmp_autopairs.on_confirm_done())
 local format_group = vim.api.nvim_create_augroup('AutoFormat', { clear = true })
 vim.api.nvim_create_autocmd('BufWritePre', {
   group = format_group,
-  pattern = { '*.rs', '*.go', '*.cpp', '*.hpp', '*.c', '*.h', '*.dart', '*.py' },
+  pattern = { 
+    '*.rs', '*.go', '*.cpp', '*.hpp', '*.c', '*.h', '*.dart', '*.py',
+    '*.js', '*.jsx', '*.ts', '*.tsx', '*.json', '*.css', '*.html'  -- Add these!
+  },
   callback = function()
     local timeout_ms = 2000
     local bufnr = vim.api.nvim_get_current_buf()
@@ -1109,6 +1152,14 @@ vim.api.nvim_create_autocmd('BufWritePre', {
         async = false,
         timeout_ms = timeout_ms,
         bufnr = bufnr,
+        filter = function(client)
+          -- For JS/TS files, prefer eslint for formatting if available
+          if client.name == "eslint" then
+            return true
+          end
+          -- For other files, use any LSP that supports formatting
+          return client.supports_method("textDocument/formatting")
+        end
       })
     end)
     
@@ -1116,9 +1167,7 @@ vim.api.nvim_create_autocmd('BufWritePre', {
       vim.notify("Format timeout or error", vim.log.levels.WARN)
     end
   end
-})
-
--- Highlight on yank
+})-- Highlight on yank
 local highlight_group = vim.api.nvim_create_augroup('YankHighlight', { clear = true })
 vim.api.nvim_create_autocmd('TextYankPost', {
   group = highlight_group,
@@ -1139,6 +1188,8 @@ vim.api.nvim_create_autocmd('BufWritePre', {
     vim.fn.mkdir(vim.fn.fnamemodify(file, ':p:h'), 'p')
   end,
 })
+
+
 
 -- Create .clangd file automatically for new C++ projects
 local function create_clangd_config()
