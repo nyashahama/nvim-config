@@ -1,50 +1,53 @@
--- Check for minimum Neovim version (0.11+ compatible)
+-- Systems Programming Neovim Configuration
+-- Optimized for C++ and Go development
+
+-- Version check (0.11+)
 local ver = vim.version()
 if ver.major == 0 and ver.minor < 11 then
   vim.api.nvim_echo({{"This configuration requires Neovim 0.11 or newer", "ErrorMsg"}}, true, {})
   return
 end
 
--- always set leader first!
+-- Leader keys
 vim.keymap.set("n", "<Space>", "<Nop>", { silent = true })
 vim.g.mapleader = " "
 vim.g.maplocalleader = ","
 
 -------------------------------------------------------------------------------
--- Preferences
+-- Core Settings
 -------------------------------------------------------------------------------
--- Never automatic folding
+-- Folding
 vim.opt.foldenable = false
 vim.opt.foldmethod = 'manual'
 vim.opt.foldlevelstart = 99
 
--- UI improvements
-vim.opt.scrolloff = 5              -- More context when scrolling
+-- UI
+vim.opt.scrolloff = 8              -- More context when scrolling
 vim.opt.wrap = false               -- No line wrapping
 vim.opt.signcolumn = 'yes'         -- Always show sign column
 vim.opt.relativenumber = true      -- Relative line numbers
-vim.opt.number = true              -- Show current line number
+vim.opt.number = true              -- Current line number
 vim.opt.splitright = true          -- Vertical splits to the right
 vim.opt.splitbelow = true          -- Horizontal splits below
-vim.opt.undofile = true            -- Persistent undo history
+vim.opt.undofile = true            -- Persistent undo
 vim.opt.wildmode = 'list:longest'  -- Better tab completion
 vim.opt.ignorecase = true          -- Case-insensitive search
 vim.opt.smartcase = true           -- Case-sensitive when uppercase present
-vim.opt.visualbell = true          -- Disable beeping (use visualbell)
-vim.opt.colorcolumn = '80'         -- Line length guide
+vim.opt.visualbell = true          -- Disable beeping
+vim.opt.colorcolumn = '120'        -- Line length guide (C++ modern standard)
 vim.opt.listchars = 'tab:▸ ,nbsp:¬,extends:»,precedes:«,trail:•'
-vim.opt.clipboard = 'unnamedplus'  -- Use system clipboard
+vim.opt.clipboard = 'unnamedplus'  -- System clipboard
 vim.opt.updatetime = 250           -- Faster completion
-vim.opt.timeoutlen = 300           -- Faster key sequence completion
+vim.opt.timeoutlen = 300           -- Faster key sequences
 vim.opt.cursorline = true          -- Highlight current line
 vim.opt.termguicolors = true       -- True color support
 
--- Swap file configuration 
+-- Swap/Backup
 vim.opt.swapfile = true
 vim.opt.directory = vim.fn.stdpath('state') .. '/swap//'
 vim.opt.backupdir = vim.fn.stdpath('state') .. '/backup//'
 
--- Create directories if they don't exist
+-- Create directories
 local function ensure_dir(path)
   if vim.fn.isdirectory(path) == 0 then
     vim.fn.mkdir(path, 'p')
@@ -52,18 +55,22 @@ local function ensure_dir(path)
 end
 
 ensure_dir(vim.fn.stdpath('state') .. '/swap')
-ensure_dir(vim.fn.stdpath('state') .. '/backup')-- Tab settings (customize per language later)
-vim.opt.shiftwidth = 4
-vim.opt.softtabstop = 4
-vim.opt.tabstop = 4
-vim.opt.expandtab = true           -- Use spaces by default
+ensure_dir(vim.fn.stdpath('state') .. '/backup')
 
--- Language-specific configurations
+-- Tab defaults (2 spaces for C++, tabs for Go)
+vim.opt.shiftwidth = 2
+vim.opt.softtabstop = 2
+vim.opt.tabstop = 2
+vim.opt.expandtab = true
+
+-------------------------------------------------------------------------------
+-- Language-specific Settings
+-------------------------------------------------------------------------------
 local lang_group = vim.api.nvim_create_augroup('LangSettings', { clear = true })
 
--- Robust C++ standard detection
+-- C++ standard detection
 local function detect_cpp_standard()
-  -- Check compile_commands.json first (most reliable)
+  -- Check compile_commands.json
   local compile_cmds = vim.fn.findfile("compile_commands.json", ".;")
   if compile_cmds ~= "" then
     local ok, data = pcall(vim.fn.json_decode, vim.fn.readfile(compile_cmds))
@@ -80,122 +87,80 @@ local function detect_cpp_standard()
     local std = content:match("CMAKE_CXX_STANDARD%s+(%d+)")
     if std then return "c++" .. std end
     
-    -- Check for set_property or target_compile_features
     for _, pattern in ipairs({"c%+%+_std_(%d+)", "cxx_std_(%d+)"}) do
       std = content:match(pattern)
       if std then return "c++" .. std end
     end
   end
   
-  return "c++17" -- fallback
+  return "c++20" -- Modern default
 end
 
--- Rust settings
+-- C/C++ settings
 vim.api.nvim_create_autocmd('FileType', {
   group = lang_group,
-  pattern = 'rust',
-  callback = function()
-    vim.opt_local.colorcolumn = '100'  -- Rust's 100-char limit
-    vim.opt_local.shiftwidth = 4
-    vim.opt_local.tabstop = 4
-  end
-})
-
--- C/C++ settings (updated for modern C++: wider column, ensure spaces)
-vim.api.nvim_create_autocmd('FileType', {
-  group = lang_group,
-  pattern = {'cpp', 'hpp', 'c', 'h'},
+  pattern = {'cpp', 'c', 'h', 'hpp', 'cc', 'hh'},
   callback = function()
     vim.opt_local.shiftwidth = 2
     vim.opt_local.tabstop = 2
     vim.opt_local.softtabstop = 2
     vim.opt_local.expandtab = true
-    vim.opt_local.colorcolumn = '120'  -- Wider guide for modern codebases
+    vim.opt_local.colorcolumn = '120'
+    vim.opt_local.commentstring = '// %s'
     
-    -- Set C++ standard based on project detection
+    -- Set C++ standard
     local cpp_std = detect_cpp_standard()
     vim.b.cpp_std = cpp_std
     
-    -- Add C++-specific keymaps
-    local bufopts = { noremap = true, silent = true, buffer = true }
+    -- C++ keymaps
+    local opts = { noremap = true, silent = true, buffer = true }
     vim.keymap.set('n', '<leader>ch', '<cmd>ClangdSwitchSourceHeader<cr>', 
-      vim.tbl_extend('force', bufopts, { desc = "Switch Header/Source" }))
+      vim.tbl_extend('force', opts, { desc = "Switch Header/Source" }))
     vim.keymap.set('n', '<leader>ct', '<cmd>ClangdTypeHierarchy<cr>', 
-      vim.tbl_extend('force', bufopts, { desc = "Type Hierarchy" }))
+      vim.tbl_extend('force', opts, { desc = "Type Hierarchy" }))
     vim.keymap.set('n', '<leader>cs', '<cmd>ClangdSymbolInfo<cr>', 
-      vim.tbl_extend('force', bufopts, { desc = "Symbol Info" }))
+      vim.tbl_extend('force', opts, { desc = "Symbol Info" }))
+    vim.keymap.set('n', '<leader>cm', '<cmd>ClangdMemoryUsage<cr>', 
+      vim.tbl_extend('force', opts, { desc = "Memory Usage" }))
   end
 })
 
--- Go settings
+-- Go settings (tabs, not spaces)
 vim.api.nvim_create_autocmd('FileType', {
   group = lang_group,
   pattern = 'go',
   callback = function()
-    vim.opt_local.expandtab = false   -- Go uses tabs by default
+    vim.opt_local.expandtab = false   -- Go uses tabs
+    vim.opt_local.shiftwidth = 8
+    vim.opt_local.tabstop = 8
+    vim.opt_local.colorcolumn = '120'
+    
+    -- Go keymaps
+    local opts = { noremap = true, silent = true, buffer = true }
+    vim.keymap.set('n', '<leader>gi', '<cmd>GoImport<cr>', 
+      vim.tbl_extend('force', opts, { desc = "Go imports" }))
+    vim.keymap.set('n', '<leader>gt', '<cmd>GoTest<cr>', 
+      vim.tbl_extend('force', opts, { desc = "Go test" }))
+    vim.keymap.set('n', '<leader>gb', '<cmd>GoBuild<cr>', 
+      vim.tbl_extend('force', opts, { desc = "Go build" }))
+  end
+})
+
+-- Makefile/CMake (tabs required)
+vim.api.nvim_create_autocmd('FileType', {
+  group = lang_group,
+  pattern = {'make', 'cmake'},
+  callback = function()
+    vim.opt_local.expandtab = false
     vim.opt_local.shiftwidth = 8
     vim.opt_local.tabstop = 8
   end
 })
 
--- TypeScript/JavaScript/React settings
-vim.api.nvim_create_autocmd('FileType', {
-  group = lang_group,
-  pattern = {'typescript', 'typescriptreact', 'javascript', 'javascriptreact'},
-  callback = function()
-    vim.opt_local.shiftwidth = 2
-    vim.opt_local.tabstop = 2
-    vim.opt_local.expandtab = true
-    vim.opt_local.colorcolumn = '100'
-    
-    -- React-specific keymaps
-    local bufopts = { noremap = true, silent = true, buffer = true }
-    vim.keymap.set('n', '<leader>rf', '<cmd>EslintFixAll<cr>', 
-      vim.tbl_extend('force', bufopts, { desc = "ESLint fix all" }))
-    vim.keymap.set('n', '<leader>ro', '<cmd>OrganizeImports<cr>', 
-      vim.tbl_extend('force', bufopts, { desc = "Organize imports" }))
-  end
-})
-
--- Dart/Flutter settings
-vim.api.nvim_create_autocmd('FileType', {
-  group = lang_group,
-  pattern = 'dart',
-  callback = function()
-    vim.opt_local.shiftwidth = 2
-    vim.opt_local.tabstop = 2
-    vim.opt_local.expandtab = true
-    
-    -- Flutter commands
-    vim.keymap.set('n', '<leader>fa', '<cmd>FlutterRun<cr>', { buffer = true, desc = "Run Flutter" })
-    vim.keymap.set('n', '<leader>fq', '<cmd>FlutterQuit<cr>', { buffer = true, desc = "Quit Flutter" })
-    vim.keymap.set('n', '<leader>fr', '<cmd>FlutterHotReload<cr>', { buffer = true, desc = "Hot Reload" })
-    vim.keymap.set('n', '<leader>fR', '<cmd>FlutterRestart<cr>', { buffer = true, desc = "Hot Restart" })
-    vim.keymap.set('n', '<leader>fe', '<cmd>FlutterEmulators<cr>', { buffer = true, desc = "Show Emulators" })
-    vim.keymap.set('n', '<leader>fd', '<cmd>FlutterDevices<cr>', { buffer = true, desc = "Show Devices" })
-    vim.keymap.set('n', '<leader>fo', '<cmd>FlutterOutlineToggle<cr>', { buffer = true, desc = "Toggle Outline" })
-    vim.keymap.set('n', '<leader>fp', '<cmd>FlutterPubGet<cr>', { buffer = true, desc = "Pub Get" })
-    vim.keymap.set('n', '<leader>fc', '<cmd>FlutterCopyProfilerUrl<cr>', { buffer = true, desc = "Copy Profiler URL" })
-    vim.keymap.set('n', '<leader>ft', '<cmd>FlutterDevTools<cr>', { buffer = true, desc = "Launch DevTools" })
-  end
-})
-
--- Python settings
-vim.api.nvim_create_autocmd('FileType', {
-  group = lang_group,
-  pattern = 'python',
-  callback = function()
-    vim.opt_local.shiftwidth = 4
-    vim.opt_local.tabstop = 4
-    vim.opt_local.expandtab = true
-    vim.opt_local.colorcolumn = '88'  -- Black's default
-  end
-})
-
 -------------------------------------------------------------------------------
--- Key mappings
+-- Key Mappings
 -------------------------------------------------------------------------------
--- Enhanced fzf file finder with creation capability
+-- File operations with fzf
 vim.keymap.set('n', '<C-p>', function()
   vim.fn['fzf#run'](vim.fn['fzf#wrap']({
     source = 'find . -type f 2>/dev/null',
@@ -210,11 +175,7 @@ vim.keymap.set('n', '<C-p>', function()
         if selection ~= '' then
           local dir = vim.fn.fnamemodify(selection, ':h')
           if dir ~= '.' and dir ~= '' and vim.fn.isdirectory(dir) == 0 then
-            local success = vim.fn.mkdir(dir, 'p')
-            if success == 0 then
-              vim.api.nvim_echo({{"Failed to create directory: " .. dir, "ErrorMsg"}}, true, {})
-              return
-            end
+            vim.fn.mkdir(dir, 'p')
           end
           vim.cmd('edit ' .. vim.fn.fnameescape(selection))
           vim.cmd('write')
@@ -223,11 +184,7 @@ vim.keymap.set('n', '<C-p>', function()
             if filename and filename ~= '' then
               local dir = vim.fn.fnamemodify(filename, ':h')
               if dir ~= '.' and dir ~= '' and vim.fn.isdirectory(dir) == 0 then
-                local success = vim.fn.mkdir(dir, 'p')
-                if success == 0 then
-                  vim.api.nvim_echo({{"Failed to create directory: " .. dir, "ErrorMsg"}}, true, {})
-                  return
-                end
+                vim.fn.mkdir(dir, 'p')
               end
               vim.cmd('edit ' .. vim.fn.fnameescape(filename))
               vim.cmd('write')
@@ -240,41 +197,49 @@ vim.keymap.set('n', '<C-p>', function()
         end
       end
     end,
-    options = '--expect=ctrl-e --prompt="Files (Ctrl-E: create)> " --print-query --preview="if [ -f {} ]; then bat --style=numbers --color=always {} 2>/dev/null || cat {} 2>/dev/null; else echo \'[New file - Press Ctrl-E to create]\'; fi"'
+    options = '--expect=ctrl-e --prompt="Files (Ctrl-E: create)> " --print-query --preview="bat --style=numbers --color=always {} 2>/dev/null || cat {} 2>/dev/null"'
   }))
-end, { desc = "Find files with creation option" })
+end, { desc = "Find files" })
 
 vim.keymap.set('n', '<leader>;', '<cmd>Buffers<cr>', { desc = "List buffers" })
+vim.keymap.set('n', '<leader>rg', '<cmd>Rg<cr>', { desc = "Ripgrep search" })
 
 -- Essential operations
 vim.keymap.set('n', '<leader>w', '<cmd>w<cr>', { desc = "Save file" })
 vim.keymap.set('n', '<leader>q', '<cmd>q<cr>', { desc = "Quit" })
 vim.keymap.set('n', ';', ':', { desc = "Command mode" })
 
--- Clipboard integration
+-- Clipboard
 vim.keymap.set('n', '<leader>p', '"+p', { desc = "Paste from clipboard" })
 vim.keymap.set('n', '<leader>y', '"+y', { desc = "Yank to clipboard" })
 vim.keymap.set('v', '<leader>y', '"+y', { desc = "Yank to clipboard" })
 
--- Navigation enhancements
+-- Navigation
 vim.keymap.set('', 'H', '^', { desc = "Start of line" })
 vim.keymap.set('', 'L', '$', { desc = "End of line" })
 vim.keymap.set('n', '<leader><leader>', '<c-^>', { desc = "Toggle buffers" })
 
--- Improved search
+-- Search improvements
 vim.keymap.set('n', '<C-h>', '<cmd>nohlsearch<cr>', { desc = "Clear highlights" })
 vim.keymap.set('n', 'n', 'nzz', { silent = true, desc = "Next result (centered)" })
 vim.keymap.set('n', 'N', 'Nzz', { silent = true, desc = "Previous result (centered)" })
 
--- Escape remaps
+-- Quick escape
 vim.keymap.set('i', 'jk', '<Esc>', { desc = "Exit insert mode" })
 vim.keymap.set('v', 'jk', '<Esc>', { desc = "Exit visual mode" })
 vim.keymap.set('t', 'jk', '<C-\\><C-n>', { desc = "Exit terminal mode" })
 
--- Window navigation
-vim.keymap.set('n', '<C-j>', '<C-w>j', { desc = "Move to window below" })
-vim.keymap.set('n', '<C-k>', '<C-w>k', { desc = "Move to window above" })
-vim.keymap.set('n', '<C-l>', '<C-w>l', { desc = "Move to window right" })
+-- Window navigation - Using leader-based to avoid conflicts
+vim.keymap.set('n', '<leader>j', '<C-w>j', { desc = "Move to window below" })
+vim.keymap.set('n', '<leader>k', '<C-w>k', { desc = "Move to window above" })
+vim.keymap.set('n', '<leader>l', '<C-w>l', { desc = "Move to window right" })
+vim.keymap.set('n', '<leader>h', '<C-w>h', { desc = "Move to window left" })
+
+-- Window management
+vim.keymap.set('n', '<leader>sv', '<cmd>vsplit<cr>', { desc = "Vertical split" })
+vim.keymap.set('n', '<leader>sh', '<cmd>split<cr>', { desc = "Horizontal split" })
+vim.keymap.set('n', '<leader>sx', '<cmd>close<cr>', { desc = "Close split" })
+vim.keymap.set('n', '<leader>s=', '<C-w>=', { desc = "Equal splits" })
 
 -- Quickfix navigation
 vim.keymap.set('n', '<leader>co', '<cmd>copen<cr>', { desc = 'Open quickfix' })
@@ -293,7 +258,7 @@ vim.keymap.set('v', '<A-j>', ":m '>+1<CR>gv=gv", { desc = "Move selection down" 
 vim.keymap.set('v', '<A-k>', ":m '<-2<CR>gv=gv", { desc = "Move selection up" })
 
 -------------------------------------------------------------------------------
--- Plugin configuration (using lazy.nvim)
+-- Plugin Manager (lazy.nvim)
 -------------------------------------------------------------------------------
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not (vim.uv or vim.loop).fs_stat(lazypath) then
@@ -312,12 +277,47 @@ end
 vim.opt.rtp:prepend(lazypath)
 
 require("lazy").setup({
-  -- UI Enhancements
-  { "ellisonleao/gruvbox.nvim", priority = 1000, config = true },
+  -- Theme
+  { 
+    "ellisonleao/gruvbox.nvim", 
+    priority = 1000, 
+    config = function()
+      require("gruvbox").setup({
+        contrast = "hard",
+        italic = {
+          strings = false,
+          comments = false,
+        },
+      })
+      vim.cmd.colorscheme("gruvbox")
+      vim.o.background = "dark"
+      
+      -- Configure lightline after colorscheme is loaded
+      vim.g.lightline = {
+        colorscheme = 'gruvbox',
+        active = {
+          left = {
+            { 'mode', 'paste' },
+            { 'readonly', 'filename', 'modified' }
+          },
+          right = {
+            { 'lineinfo' },
+            { 'percent' },
+            { 'fileformat', 'fileencoding', 'filetype' }
+          }
+        },
+        component_function = {
+          filename = 'LightlineFilename'
+        }
+      }
+    end
+  },
+  
+  -- UI
   { "itchyny/lightline.vim" },
   { "nvim-tree/nvim-web-devicons", opts = {} },
   
-  -- Which-key for keymap discovery
+  -- Keymap discovery
   {
     "folke/which-key.nvim",
     event = "VeryLazy",
@@ -325,15 +325,14 @@ require("lazy").setup({
       icons = { mappings = true },
       spec = {
         { "<leader>c", group = "code/cpp" },
-        { "<leader>f", group = "flutter" },
+        { "<leader>g", group = "git/go" },
         { "<leader>d", group = "diagnostics" },
-        { "<leader>g", group = "git" },
-        { "<leader>r", group = "react" },
+        { "<leader>s", group = "splits" },
       },
     },
   },
 
-  -- Navigation & Productivity
+  -- Navigation
   { 
     "ggandor/leap.nvim", 
     keys = {"s", "S", "gs"},
@@ -341,6 +340,8 @@ require("lazy").setup({
       require('leap').add_default_mappings() 
     end 
   },
+  
+  -- Fuzzy finder
   { "junegunn/fzf", build = "./install --all" },
   { "junegunn/fzf.vim", cmd = {"Files", "Buffers", "Rg", "GFiles"} },
   { "airblade/vim-rooter" },
@@ -349,8 +350,10 @@ require("lazy").setup({
   {
     "stevearc/oil.nvim",
     opts = {
-      view_options = {
-        show_hidden = true,
+      view_options = { show_hidden = true },
+      keymaps = {
+        ["<C-h>"] = false,  -- Disable oil's C-h to avoid conflicts
+        ["<C-l>"] = false,  -- Disable oil's C-l to avoid conflicts
       },
     },
     keys = {
@@ -390,7 +393,7 @@ require("lazy").setup({
     }
   },
   
-  -- Comment plugin
+  -- Comments
   {
     "numToStr/Comment.nvim",
     keys = {
@@ -400,7 +403,7 @@ require("lazy").setup({
     opts = {},
   },
   
-  -- Better terminal
+  -- Terminal
   {
     "akinsho/toggleterm.nvim",
     cmd = "ToggleTerm",
@@ -426,8 +429,7 @@ require("lazy").setup({
     config = function()
       require("nvim-treesitter.configs").setup({
         ensure_installed = { 
-          "lua", "rust", "go", "c", "cpp", "dart", "python", 
-          "javascript", "typescript", "tsx", "json", "html", "css"
+          "lua", "c", "cpp", "go", "make", "cmake", "bash", "json", "yaml", "toml"
         },
         highlight = { 
           enable = true,
@@ -447,21 +449,6 @@ require("lazy").setup({
     end
   },
   
-  -- Auto-close and auto-rename JSX/HTML tags - FIXED: Use standalone setup
-  {
-    "windwp/nvim-ts-autotag",
-    ft = { "html", "javascript", "javascriptreact", "typescript", "typescriptreact", "xml" },
-    config = function()
-      require('nvim-ts-autotag').setup({
-        opts = {
-          enable_close = true,
-          enable_rename = true,
-          enable_close_on_slash = false,
-        },
-      })
-    end,
-  },
-  
   -- Indentation guides
   {
     "lukas-reineke/indent-blankline.nvim",
@@ -473,28 +460,21 @@ require("lazy").setup({
     },
   },
 
+  -- Auto-pairs
   {
     "windwp/nvim-autopairs",
     event = "InsertEnter",
     config = true
   },
 
-  -- LSP & Autocompletion
+  -- LSP & Completion
   { "neovim/nvim-lspconfig" },
   { "williamboman/mason.nvim", cmd = "Mason", opts = {} },
   {
     "williamboman/mason-lspconfig.nvim",
     event = { "BufReadPre", "BufNewFile" },
     opts = {
-      ensure_installed = { 
-        "rust_analyzer", 
-        "clangd", 
-        "gopls", 
-        "pyright",
-        "ts_ls",  -- TypeScript/JavaScript LSP
-        "eslint"  -- ESLint integration
-      },
-      -- Disable automatic server setup (we use vim.lsp.config)
+      ensure_installed = { "clangd", "gopls" },
       automatic_installation = false,
     },
     dependencies = {
@@ -503,14 +483,14 @@ require("lazy").setup({
     },
   },
   
-  -- LSP progress indicator
+  -- LSP progress
   {
     "j-hui/fidget.nvim",
     event = "LspAttach",
     opts = {},
   },
   
-  -- Snippet engine
+  -- Snippets
   {
     "L3MON4D3/LuaSnip",
     version = "v2.*",
@@ -518,73 +498,10 @@ require("lazy").setup({
     dependencies = { "rafamadriz/friendly-snippets" },
     config = function()
       require("luasnip.loaders.from_vscode").lazy_load()
-      
-      -- Add custom React snippets
-      local ls = require("luasnip")
-      local s = ls.snippet
-      local t = ls.text_node
-      local i = ls.insert_node
-      
-      ls.add_snippets("typescriptreact", {
-        s("rfc", {
-          t({"import React from 'react';", "", "interface "}),
-          i(1, "Component"),
-          t({"Props {", "  "}),
-          i(2, "// props"),
-          t({"", "}", "", "const "}),
-          i(3, "Component"),
-          t({": React.FC<"}),
-          i(4, "Component"),
-          t({"Props> = (props) => {", "  return (", "    <div>"}),
-          i(5, "Component"),
-          t({"</div>", "  );", "};", "", "export default "}),
-          i(6, "Component"),
-          t(";"),
-        }),
-        s("useh", {
-          t("const ["),
-          i(1, "state"),
-          t(", set"),
-          i(2, "State"),
-          t("] = useState"),
-          i(3, "<"),
-          i(4, "Type"),
-          t(">("),
-          i(5, "initialValue"),
-          t(");"),
-        }),
-        s("usee", {
-          t({"useEffect(() => {", "  "}),
-          i(1, "// effect"),
-          t({"", "}, ["}),
-          i(2, "deps"),
-          t("]);"),
-        }),
-      })
-      
-      ls.add_snippets("javascriptreact", {
-        s("rfc", {
-          t({"import React from 'react';", "", "const "}),
-          i(1, "Component"),
-          t({" = (props) => {", "  return (", "    <div>"}),
-          i(2, "Component"),
-          t({"</div>", "  );", "};", "", "export default "}),
-          i(3, "Component"),
-          t(";"),
-        }),
-        s("useh", {
-          t("const ["),
-          i(1, "state"),
-          t(", set"),
-          i(2, "State"),
-          t("] = useState("),
-          i(3, "initialValue"),
-          t(");"),
-        }),
-      })
     end,
   },
   
+  -- Completion
   {
     "hrsh7th/nvim-cmp",
     event = "InsertEnter",
@@ -659,51 +576,23 @@ require("lazy").setup({
           { name = 'cmdline' }
         }
       })
+      
+      -- Autopairs integration
+      local cmp_autopairs = require("nvim-autopairs.completion.cmp")
+      cmp.event:on("confirm_done", cmp_autopairs.on_confirm_done())
     end
   },
 
-  -- Language Support
-  { "rust-lang/rust.vim", ft = "rust" },
-  { "fatih/vim-go", ft = "go" },
-  
-  -- Flutter/Dart Support
-  {
-    "dart-lang/dart-vim-plugin",
-    ft = "dart",
-    init = function()
-      vim.g.dart_style_guide = 2
-      vim.g.dart_format_on_save = 1
-    end
-  },
-  {
-    "akinsho/flutter-tools.nvim",
-    lazy = false,
-    dependencies = {
-      "nvim-lua/plenary.nvim",
-      "stevearc/dressing.nvim",
-    },
-    config = function()
-      -- Configured after LSP setup
-    end,
-  },
-
-  -- Enhanced C++ support
+  -- Language-specific
   { "octol/vim-cpp-enhanced-highlight", ft = { "cpp", "c" } },
+  { "fatih/vim-go", ft = "go", build = ":GoUpdateBinaries" },
 }, {
-  ui = {
-    border = "rounded",
-  },
+  ui = { border = "rounded" },
   performance = {
     rtp = {
       disabled_plugins = {
-        "gzip",
-        "matchit",
-        "matchparen",
-        "netrwPlugin",
-        "tarPlugin",
-        "tohtml",
-        "tutor",
-        "zipPlugin",
+        "gzip", "matchit", "matchparen", "netrwPlugin",
+        "tarPlugin", "tohtml", "tutor", "zipPlugin",
       },
     },
   },
@@ -713,38 +602,7 @@ require("lazy").setup({
 -- LSP Configuration
 -------------------------------------------------------------------------------
 
--- CRITICAL: Prevent angularls from ever starting
--- This must come before any other LSP configuration
-vim.g.lsp_angularls_enable = false
-
--- Block angularls configuration completely
-vim.lsp.config('angularls', {
-  enabled = false,
-  autostart = false,
-  filetypes = {},  -- Remove all filetypes
-})
-
--- Additional safety: Stop angularls if it somehow gets attached
-vim.api.nvim_create_autocmd("LspAttach", {
-  callback = function(args)
-    local client = vim.lsp.get_client_by_id(args.data.client_id)
-    if client and client.name == "angularls" then
-      vim.schedule(function()
-        vim.lsp.stop_client(client.id)
-        vim.notify("Stopped unwanted angularls client", vim.log.levels.WARN)
-      end)
-    end
-  end,
-})
-
--- Block FileType autocmd that might trigger angularls
-vim.api.nvim_create_autocmd("FileType", {
-  pattern = { "typescript", "typescriptreact", "typescript.tsx", "html" },
-  callback = function()
-    -- Ensure angularls doesn't start for these filetypes
-    vim.b.lsp_angularls_enable = false
-  end,
-})-- Diagnostic configuration
+-- Diagnostics
 vim.diagnostic.config({
   virtual_text = { 
     prefix = '●',
@@ -769,43 +627,43 @@ for type, icon in pairs(signs) do
   vim.fn.sign_define(hl, { text = icon, texthl = hl, numhl = hl })
 end
 
--- Common LSP on_attach function
+-- LSP on_attach
 local on_attach = function(client, bufnr)
-  local bufopts = { noremap=true, silent=true, buffer=bufnr }
+  local opts = { noremap=true, silent=true, buffer=bufnr }
   
   -- Navigation
   vim.keymap.set('n', 'gd', vim.lsp.buf.definition, 
-    vim.tbl_extend('force', bufopts, { desc = "Go to definition" }))
+    vim.tbl_extend('force', opts, { desc = "Go to definition" }))
   vim.keymap.set('n', 'gD', vim.lsp.buf.declaration, 
-    vim.tbl_extend('force', bufopts, { desc = "Go to declaration" }))
+    vim.tbl_extend('force', opts, { desc = "Go to declaration" }))
   vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, 
-    vim.tbl_extend('force', bufopts, { desc = "Go to implementation" }))
+    vim.tbl_extend('force', opts, { desc = "Go to implementation" }))
   vim.keymap.set('n', 'gr', vim.lsp.buf.references, 
-    vim.tbl_extend('force', bufopts, { desc = "Show references" }))
+    vim.tbl_extend('force', opts, { desc = "Show references" }))
   vim.keymap.set('n', 'K', vim.lsp.buf.hover, 
-    vim.tbl_extend('force', bufopts, { desc = "Hover documentation" }))
+    vim.tbl_extend('force', opts, { desc = "Hover documentation" }))
   
   -- Code actions
   vim.keymap.set('n', '<leader>rn', vim.lsp.buf.rename, 
-    vim.tbl_extend('force', bufopts, { desc = "Rename symbol" }))
+    vim.tbl_extend('force', opts, { desc = "Rename symbol" }))
   vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action, 
-    vim.tbl_extend('force', bufopts, { desc = "Code action" }))
+    vim.tbl_extend('force', opts, { desc = "Code action" }))
   
   -- Diagnostics
   vim.keymap.set('n', '[d', vim.diagnostic.goto_prev, 
-    vim.tbl_extend('force', bufopts, { desc = 'Previous diagnostic' }))
+    vim.tbl_extend('force', opts, { desc = 'Previous diagnostic' }))
   vim.keymap.set('n', ']d', vim.diagnostic.goto_next, 
-    vim.tbl_extend('force', bufopts, { desc = 'Next diagnostic' }))
+    vim.tbl_extend('force', opts, { desc = 'Next diagnostic' }))
   vim.keymap.set('n', '<leader>de', vim.diagnostic.open_float, 
-    vim.tbl_extend('force', bufopts, { desc = 'Show diagnostic' }))
+    vim.tbl_extend('force', opts, { desc = 'Show diagnostic' }))
   vim.keymap.set('n', '<leader>dl', vim.diagnostic.setloclist, 
-    vim.tbl_extend('force', bufopts, { desc = 'Diagnostic list' }))
+    vim.tbl_extend('force', opts, { desc = 'Diagnostic list' }))
   
   -- Formatting
   if client.server_capabilities.documentFormattingProvider then
     vim.keymap.set("n", "<leader>cf", function() 
       vim.lsp.buf.format { async = true } 
-    end, vim.tbl_extend('force', bufopts, { desc = "Format buffer" }))
+    end, vim.tbl_extend('force', opts, { desc = "Format buffer" }))
   end
   
   -- Highlight symbol under cursor
@@ -825,61 +683,9 @@ local on_attach = function(client, bufnr)
   end
 end
 
--- LSP server configurations
 local capabilities = require('cmp_nvim_lsp').default_capabilities()
 
--- Configure Flutter Tools (uses its own LSP setup)
-require("flutter-tools").setup({
-  lsp = {
-    on_attach = on_attach,
-    capabilities = capabilities,
-    settings = {
-      dart = {
-        completeFunctionCalls = true,
-        showTodos = true,
-        analysisExcludedFolders = { vim.fn.expand("$HOME/.pub-cache") },
-      }
-    }
-  },
-  dev_log = {
-    enabled = true,
-    open_cmd = "tabedit",
-  },
-  widget_guides = {
-    enabled = true,
-  },
-  dev_tools = {
-    autostart = false,
-    auto_open_browser = false,
-  },
-  debugger = {
-    enabled = true,
-    run_via_dap = false,
-  },
-})
-
--- Rust Analyzer with new API
-vim.lsp.config('rust_analyzer', {
-  cmd = { 'rust-analyzer' },
-  filetypes = { 'rust' },
-  root_markers = { 'Cargo.toml', 'rust-project.json' },
-  capabilities = capabilities,
-  on_attach = on_attach,
-  settings = {
-    ["rust-analyzer"] = {
-      cargo = { allFeatures = true },
-      checkOnSave = true,
-      check = { command = "clippy" },
-      inlayHints = {
-        bindingModeHints = { enable = true },
-        closureReturnTypeHints = { enable = "always" },
-        lifetimeElisionHints = { enable = "always" },
-      },
-    },
-  },
-})
-
--- Clangd for C/C++ with new API
+-- Clangd (C/C++)
 vim.lsp.config('clangd', {
   cmd = {
     "clangd",
@@ -889,6 +695,7 @@ vim.lsp.config('clangd', {
     "--completion-style=detailed",
     "--function-arg-placeholders",
     "--fallback-style=llvm",
+    "--enable-config",
   },
   filetypes = { 'c', 'cpp', 'objc', 'objcpp', 'cuda' },
   root_markers = {
@@ -903,7 +710,7 @@ vim.lsp.config('clangd', {
   on_attach = on_attach,
 })
 
--- Go LSP with new API
+-- Gopls (Go)
 vim.lsp.config('gopls', {
   cmd = { 'gopls' },
   filetypes = { 'go', 'gomod', 'gowork', 'gotmpl' },
@@ -920,267 +727,50 @@ vim.lsp.config('gopls', {
       gofumpt = true,
       usePlaceholders = true,
       completeUnimported = true,
-    },
-  },
-})
-
--- Python LSP with new API
-vim.lsp.config('pyright', {
-  cmd = { 'pyright-langserver', '--stdio' },
-  filetypes = { 'python' },
-  root_markers = { 'pyproject.toml', 'setup.py', 'setup.cfg', 'requirements.txt', 'Pipfile', '.git' },
-  capabilities = capabilities,
-  on_attach = on_attach,
-  settings = {
-    python = {
-      analysis = {
-        autoSearchPaths = true,
-        diagnosticMode = "workspace",
-        useLibraryCodeForTypes = true,
-        typeCheckingMode = "basic",
-      }
-    }
-  }
-})
-
--- TypeScript/JavaScript LSP with React support - FIXED FORMATTING
-vim.lsp.config('ts_ls', {
-  cmd = { 'typescript-language-server', '--stdio' },
-  filetypes = { 
-    'javascript', 
-    'javascriptreact', 
-    'javascript.jsx', 
-    'typescript', 
-    'typescriptreact', 
-    'typescript.tsx' 
-  },
-  root_markers = { 'package.json', 'tsconfig.json', 'jsconfig.json', '.git' },
-  capabilities = capabilities,
-  on_attach = function(client, bufnr)
-    -- Call default on_attach
-    on_attach(client, bufnr)
-    
-    -- IMPORTANT: Enable formatting for TypeScript LSP
-    client.server_capabilities.documentFormattingProvider = true
-    client.server_capabilities.documentRangeFormattingProvider = true
-  end,
-  settings = {
-    typescript = {
-      format = {
-        indentSize = 2,
-        convertTabsToSpaces = true,
-        tabSize = 2,
-      },
-      inlayHints = {
-        includeInlayParameterNameHints = 'all',
-        includeInlayParameterNameHintsWhenArgumentMatchesName = false,
-        includeInlayFunctionParameterTypeHints = true,
-        includeInlayVariableTypeHints = true,
-        includeInlayPropertyDeclarationTypeHints = true,
-        includeInlayFunctionLikeReturnTypeHints = true,
-        includeInlayEnumMemberValueHints = true,
-      },
-      suggest = {
-        includeCompletionsForModuleExports = true,
-      },
-    },
-    javascript = {
-      format = {
-        indentSize = 2,
-        convertTabsToSpaces = true,
-        tabSize = 2,
-      },
-      inlayHints = {
-        includeInlayParameterNameHints = 'all',
-        includeInlayParameterNameHintsWhenArgumentMatchesName = false,
-        includeInlayFunctionParameterTypeHints = true,
-        includeInlayVariableTypeHints = true,
-        includeInlayPropertyDeclarationTypeHints = true,
-        includeInlayFunctionLikeReturnTypeHints = true,
-        includeInlayEnumMemberValueHints = true,
-      },
-      suggest = {
-        includeCompletionsForModuleExports = true,
+      hints = {
+        assignVariableTypes = true,
+        compositeLiteralFields = true,
+        compositeLiteralTypes = true,
+        constantValues = true,
+        functionTypeParameters = true,
+        parameterNames = true,
+        rangeVariableTypes = true,
       },
     },
   },
 })
 
--- ESLint LSP for linting and formatting
-vim.lsp.config('eslint', {
-  cmd = { 'vscode-eslint-language-server', '--stdio' },
-  filetypes = { 
-    'javascript', 
-    'javascriptreact', 
-    'javascript.jsx', 
-    'typescript', 
-    'typescriptreact', 
-    'typescript.tsx',
-  },
-  root_markers = { 
-    'eslint.config.js',
-    '.eslintrc', 
-    '.eslintrc.js', 
-    '.eslintrc.cjs',
-    '.eslintrc.yaml',
-    '.eslintrc.yml',
-    '.eslintrc.json', 
-    'package.json' 
-  },
-  capabilities = capabilities,
-  on_attach = function(client, bufnr)
-    on_attach(client, bufnr)
-    
-    -- Create buffer-local command for ESLint fix
-    vim.api.nvim_buf_create_user_command(bufnr, 'EslintFixAll', function()
-      vim.lsp.buf.code_action({
-        context = {
-          only = { 'source.fixAll.eslint' },
-          diagnostics = {},
-        },
-        apply = true,
-      })
-    end, {
-      desc = 'Fix all ESLint issues'
-    })
-    
-    -- Format on save (more robust)
-    vim.api.nvim_create_autocmd("BufWritePre", {
-      buffer = bufnr,
-      callback = function()
-        -- Only try to fix if ESLint is ready
-        if client.is_stopped() then
-          return
-        end
-        
-        local params = {
-          textDocument = vim.lsp.util.make_text_document_params(),
-          context = { only = { 'source.fixAll.eslint' } },
-        }
-        
-        local result = vim.lsp.buf_request_sync(bufnr, 'textDocument/codeAction', params, 1000)
-        if not result then return end
-        
-        for _, res in pairs(result) do
-          for _, action in pairs(res.result or {}) do
-            if action.edit then
-              vim.lsp.util.apply_workspace_edit(action.edit, client.offset_encoding)
-            end
-          end
-        end
-      end,
-    })
-  end,
-  settings = {
-    validate = 'on',
-    packageManager = 'npm',
-    useESLintClass = false,
-    experimental = {
-      useFlatConfig = true,
-    },
-    codeAction = {
-      disableRuleComment = {
-        enable = true,
-        location = "separateLine"
-      },
-      showDocumentation = {
-        enable = true
-      }
-    },
-    codeActionOnSave = {
-      enable = false, -- We handle this manually
-      mode = "all"
-    },
-    format = true,
-    quiet = false,
-    onIgnoredFiles = "off",
-    rulesCustomizations = {},
-    run = "onType",
-    workingDirectory = {
-      mode = "auto"
-    }
-  }
-})
 -- Enable LSP servers
-vim.lsp.enable('rust_analyzer')
 vim.lsp.enable('clangd')
 vim.lsp.enable('gopls')
-vim.lsp.enable('pyright')
-vim.lsp.enable('ts_ls')
-vim.lsp.enable('eslint')
 
--- Command for organizing imports (TypeScript/JavaScript)
-vim.api.nvim_create_user_command('OrganizeImports', function()
-  local params = {
-    command = "_typescript.organizeImports",
-    arguments = {vim.api.nvim_buf_get_name(0)},
-  }
-  vim.lsp.buf.execute_command(params)
-end, {
-  desc = "Organize imports (TypeScript)"
-})
+-------------------------------------------------------------------------------
+-- Autocommands
+-------------------------------------------------------------------------------
 
--- Autopairs configuration
-require("nvim-autopairs").setup({
-  check_ts = true,
-  disable_filetype = { "TelescopePrompt", "flutterToolsOutline" },
-  fast_wrap = {
-    map = '<M-e>',
-    chars = { '{', '[', '(', '"', "'" },
-    pattern = [=[[%'%"%)%>%]%)%}%,]]=],
-    end_key = ',',
-    keys = 'qwertyuiopzxcvbnmasdfghjkl',
-    check_comma = true,
-    highlight = 'Search',
-    highlight_grey='Comment'
-  },
-})
-
--- Integration with nvim-cmp
-local cmp_autopairs = require("nvim-autopairs.completion.cmp")
-local cmp = require("cmp")
-cmp.event:on("confirm_done", cmp_autopairs.on_confirm_done())
-
--- Format on save with error handling
+-- Format on save
 local format_group = vim.api.nvim_create_augroup('AutoFormat', { clear = true })
 vim.api.nvim_create_autocmd('BufWritePre', {
   group = format_group,
-  pattern = { 
-    '*.rs', '*.go', '*.cpp', '*.hpp', '*.c', '*.h', '*.dart', '*.py',
-    '*.js', '*.jsx', '*.ts', '*.tsx', '*.json', '*.css', '*.html'  -- Add these!
-  },
+  pattern = { '*.c', '*.h', '*.cpp', '*.hpp', '*.cc', '*.hh', '*.go' },
   callback = function()
     local timeout_ms = 2000
     local bufnr = vim.api.nvim_get_current_buf()
     
-    -- Check if LSP client is attached
     local clients = vim.lsp.get_clients({ bufnr = bufnr })
-    if #clients == 0 then
-      return
-    end
+    if #clients == 0 then return end
     
-    -- Format with timeout
-    local success = pcall(function()
+    pcall(function()
       vim.lsp.buf.format({ 
         async = false,
         timeout_ms = timeout_ms,
         bufnr = bufnr,
-        filter = function(client)
-          -- For JS/TS files, prefer eslint for formatting if available
-          if client.name == "eslint" then
-            return true
-          end
-          -- For other files, use any LSP that supports formatting
-          return client.supports_method("textDocument/formatting")
-        end
       })
     end)
-    
-    if not success then
-      vim.notify("Format timeout or error", vim.log.levels.WARN)
-    end
   end
-})-- Highlight on yank
+})
+
+-- Highlight on yank
 local highlight_group = vim.api.nvim_create_augroup('YankHighlight', { clear = true })
 vim.api.nvim_create_autocmd('TextYankPost', {
   group = highlight_group,
@@ -1190,21 +780,43 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   end,
 })
 
--- Auto-create parent directories on save
+-- Auto-create parent directories
 vim.api.nvim_create_autocmd('BufWritePre', {
   group = vim.api.nvim_create_augroup('auto_create_dir', { clear = true }),
   callback = function(event)
-    if event.match:match('^%w%w+://') then
-      return
-    end
+    if event.match:match('^%w%w+://') then return end
     local file = vim.loop.fs_realpath(event.match) or event.match
     vim.fn.mkdir(vim.fn.fnamemodify(file, ':p:h'), 'p')
   end,
 })
 
+-- Terminal settings
+vim.api.nvim_create_autocmd('TermOpen', {
+  group = vim.api.nvim_create_augroup('terminal_settings', { clear = true }),
+  callback = function()
+    vim.opt_local.number = false
+    vim.opt_local.relativenumber = false
+    vim.opt_local.signcolumn = 'no'
+  end,
+})
 
+-- Return to last position
+vim.api.nvim_create_autocmd('BufReadPost', {
+  group = vim.api.nvim_create_augroup('last_loc', { clear = true }),
+  callback = function()
+    local mark = vim.api.nvim_buf_get_mark(0, '"')
+    local lcount = vim.api.nvim_buf_line_count(0)
+    if mark[1] > 0 and mark[1] <= lcount then
+      pcall(vim.api.nvim_win_set_cursor, 0, mark)
+    end
+  end,
+})
 
--- Create .clangd file automatically for new C++ projects
+-------------------------------------------------------------------------------
+-- Utility Commands
+-------------------------------------------------------------------------------
+
+-- Create .clangd config for C++ projects
 local function create_clangd_config()
   local cpp_std = detect_cpp_standard()
   local clangd_config = string.format([[
@@ -1222,15 +834,14 @@ Diagnostics:
 ]], cpp_std)
   
   vim.fn.writefile(vim.split(clangd_config, '\n'), '.clangd')
-  vim.notify("Created .clangd configuration file with " .. cpp_std, vim.log.levels.INFO)
+  vim.notify("Created .clangd configuration with " .. cpp_std, vim.log.levels.INFO)
 end
 
--- Command to create clangd config
 vim.api.nvim_create_user_command('CreateClangdConfig', create_clangd_config, {
-  desc = "Create .clangd configuration file for modern C++"
+  desc = "Create .clangd configuration file"
 })
 
--- Command to show LSP info
+-- Show active LSP clients
 vim.api.nvim_create_user_command('LspInfo', function()
   local bufnr = vim.api.nvim_get_current_buf()
   local clients = vim.lsp.get_clients({ bufnr = bufnr })
@@ -1250,52 +861,7 @@ end, {
   desc = "Show active LSP clients"
 })
 
--- Better defaults for terminal mode
-vim.api.nvim_create_autocmd('TermOpen', {
-  group = vim.api.nvim_create_augroup('terminal_settings', { clear = true }),
-  callback = function()
-    vim.opt_local.number = false
-    vim.opt_local.relativenumber = false
-    vim.opt_local.signcolumn = 'no'
-  end,
-})
-
--- Return to last edit position when opening files
-vim.api.nvim_create_autocmd('BufReadPost', {
-  group = vim.api.nvim_create_augroup('last_loc', { clear = true }),
-  callback = function()
-    local mark = vim.api.nvim_buf_get_mark(0, '"')
-    local lcount = vim.api.nvim_buf_line_count(0)
-    if mark[1] > 0 and mark[1] <= lcount then
-      pcall(vim.api.nvim_win_set_cursor, 0, mark)
-    end
-  end,
-})
-
--- Theme
-vim.cmd.colorscheme("gruvbox")
-vim.o.background = "dark"
-
--- Lightline configuration
-vim.g.lightline = {
-  colorscheme = 'gruvbox',
-  active = {
-    left = {
-      { 'mode', 'paste' },
-      { 'readonly', 'filename', 'modified' }
-    },
-    right = {
-      { 'lineinfo' },
-      { 'percent' },
-      { 'fileformat', 'fileencoding', 'filetype' }
-    }
-  },
-  component_function = {
-    filename = 'LightlineFilename'
-  }
-}
-
--- Custom filename function for lightline
+-- Lightline filename function
 vim.cmd([[
 function! LightlineFilename()
   let filename = expand('%:t') !=# '' ? expand('%:t') : '[No Name]'
