@@ -39,7 +39,20 @@ vim.opt.timeoutlen = 300           -- Faster key sequence completion
 vim.opt.cursorline = true          -- Highlight current line
 vim.opt.termguicolors = true       -- True color support
 
--- Tab settings (customize per language later)
+-- Swap file configuration 
+vim.opt.swapfile = true
+vim.opt.directory = vim.fn.stdpath('state') .. '/swap//'
+vim.opt.backupdir = vim.fn.stdpath('state') .. '/backup//'
+
+-- Create directories if they don't exist
+local function ensure_dir(path)
+  if vim.fn.isdirectory(path) == 0 then
+    vim.fn.mkdir(path, 'p')
+  end
+end
+
+ensure_dir(vim.fn.stdpath('state') .. '/swap')
+ensure_dir(vim.fn.stdpath('state') .. '/backup')-- Tab settings (customize per language later)
 vim.opt.shiftwidth = 4
 vim.opt.softtabstop = 4
 vim.opt.tabstop = 4
