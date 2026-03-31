@@ -1,5 +1,5 @@
 -- Systems Programming Neovim Configuration
--- Optimized for C++ and Go development
+-- Optimized for C++, Go, and Rust development
 
 -- Version check (0.11+)
 local ver = vim.version()
@@ -143,6 +143,32 @@ vim.api.nvim_create_autocmd('FileType', {
       vim.tbl_extend('force', opts, { desc = "Go test" }))
     vim.keymap.set('n', '<leader>gb', '<cmd>GoBuild<cr>', 
       vim.tbl_extend('force', opts, { desc = "Go build" }))
+  end
+})
+
+-- Rust settings (4 spaces, 100 col)
+vim.api.nvim_create_autocmd('FileType', {
+  group = lang_group,
+  pattern = 'rust',
+  callback = function()
+    vim.opt_local.shiftwidth = 4
+    vim.opt_local.tabstop = 4
+    vim.opt_local.softtabstop = 4
+    vim.opt_local.expandtab = true
+    vim.opt_local.colorcolumn = '100'
+
+    -- Rust keymaps (rustaceanvim)
+    local opts = { noremap = true, silent = true, buffer = true }
+    vim.keymap.set('n', '<leader>rr', '<cmd>RustLsp runnables<cr>',
+      vim.tbl_extend('force', opts, { desc = "Rust runnables" }))
+    vim.keymap.set('n', '<leader>rd', '<cmd>RustLsp debuggables<cr>',
+      vim.tbl_extend('force', opts, { desc = "Rust debuggables" }))
+    vim.keymap.set('n', '<leader>re', '<cmd>RustLsp expandMacro<cr>',
+      vim.tbl_extend('force', opts, { desc = "Expand macro" }))
+    vim.keymap.set('n', '<leader>rc', '<cmd>RustLsp openCargo<cr>',
+      vim.tbl_extend('force', opts, { desc = "Open Cargo.toml" }))
+    vim.keymap.set('n', '<leader>rp', '<cmd>RustLsp parentModule<cr>',
+      vim.tbl_extend('force', opts, { desc = "Go to parent module" }))
   end
 })
 
@@ -353,6 +379,7 @@ require("lazy").setup({
       spec = {
         { "<leader>c", group = "code/cpp" },
         { "<leader>g", group = "git/go" },
+        { "<leader>r", group = "rust/rename" },
         { "<leader>d", group = "diagnostics" },
         { "<leader>s", group = "splits" },
       },
@@ -455,8 +482,8 @@ require("lazy").setup({
     event = { "BufReadPost", "BufNewFile" },
     config = function()
       require("nvim-treesitter.configs").setup({
-        ensure_installed = { 
-          "lua", "c", "cpp", "go", "make", "cmake", "bash", "json", "yaml", "toml"
+        ensure_installed = {
+          "lua", "c", "cpp", "go", "rust", "make", "cmake", "bash", "json", "yaml", "toml"
         },
         highlight = { 
           enable = true,
@@ -501,7 +528,7 @@ require("lazy").setup({
     "williamboman/mason-lspconfig.nvim",
     event = { "BufReadPre", "BufNewFile" },
     opts = {
-      ensure_installed = { "clangd", "gopls" },
+      ensure_installed = { "clangd", "gopls", "rust_analyzer" },
       automatic_installation = false,
     },
     dependencies = {
@@ -613,6 +640,11 @@ require("lazy").setup({
   -- Language-specific
   { "octol/vim-cpp-enhanced-highlight", ft = { "cpp", "c" } },
   { "fatih/vim-go", ft = "go", build = ":GoUpdateBinaries" },
+  {
+    "mrcjkb/rustaceanvim",
+    version = "^5",
+    ft = "rust",
+  },
 }, {
   ui = { border = "rounded" },
   performance = {
@@ -723,6 +755,7 @@ vim.lsp.config('clangd', {
     "--function-arg-placeholders",
     "--fallback-style=llvm",
     "--enable-config",
+    "--compile-commands-dir=.",
   },
   filetypes = { 'c', 'cpp', 'objc', 'objcpp', 'cuda' },
   root_markers = {
@@ -767,6 +800,25 @@ vim.lsp.config('gopls', {
   },
 })
 
+-- Rust (rustaceanvim — handles rust-analyzer automatically)
+vim.g.rustaceanvim = {
+  server = {
+    on_attach = on_attach,
+    capabilities = capabilities,
+    settings = {
+      ['rust-analyzer'] = {
+        checkOnSave = { command = 'clippy' },
+        cargo = { allFeatures = true },
+        inlayHints = {
+          bindingModeHints = { enable = true },
+          closureReturnTypeHints = { enable = 'always' },
+          lifetimeElisionHints = { enable = 'skip_trivial' },
+        },
+      },
+    },
+  },
+}
+
 -- Enable LSP servers
 vim.lsp.enable('clangd')
 vim.lsp.enable('gopls')
@@ -779,7 +831,7 @@ vim.lsp.enable('gopls')
 local format_group = vim.api.nvim_create_augroup('AutoFormat', { clear = true })
 vim.api.nvim_create_autocmd('BufWritePre', {
   group = format_group,
-  pattern = { '*.c', '*.h', '*.cpp', '*.hpp', '*.cc', '*.hh', '*.go' },
+  pattern = { '*.c', '*.h', '*.cpp', '*.hpp', '*.cc', '*.hh', '*.go', '*.rs' },
   callback = function()
     local timeout_ms = 2000
     local bufnr = vim.api.nvim_get_current_buf()
@@ -888,11 +940,3 @@ end, {
   desc = "Show active LSP clients"
 })
 
--- Lightline filename function
-vim.cmd([[
-function! LightlineFilename()
-  let filename = expand('%:t') !=# '' ? expand('%:t') : '[No Name]'
-  let modified = &modified ? ' +' : ''
-  return filename . modified
-endfunction
-]])
