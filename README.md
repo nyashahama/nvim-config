@@ -25,10 +25,13 @@ nvim
 | `clangd` | C/C++ LSP (or install via Mason) |
 | `gopls` | Go LSP (or install via Mason) |
 | `rust-analyzer` | Rust LSP (or install via Mason) |
-| `ripgrep` (`rg`) | Live grep search |
+| `ripgrep` (`rg`) | Live grep + file finding fallback |
+| `fd` | Fast file finding for `<C-p>` (preferred over rg/find) |
 | `bat` | File preview in `<C-p>` |
 | `fzf` | Fuzzy finding (built by lazy.nvim) |
 | `gofumpt` | Stricter Go formatting (used by gopls) |
+| `codelldb` | C++/Rust debugger adapter (auto-installed via Mason) |
+| `delve` | Go debugger adapter (auto-installed via Mason) |
 
 ---
 
@@ -51,6 +54,7 @@ Press `<leader>` and wait — **which-key** will show a popup of available bindi
 | `<C-p>` then `Ctrl-E` | Create a new file at typed path |
 | `<leader>;` | List open buffers |
 | `<leader>rg` | Live ripgrep across project |
+| `<leader>ss` | Workspace symbol search (LSP) |
 | `<leader><leader>` | Toggle between last two buffers |
 | `-` | Open parent directory (oil.nvim) |
 
@@ -157,9 +161,10 @@ bear -- make
 
 | Key | Action |
 |-----|--------|
-| `<leader>gi` | Organize imports (`GoImport`) |
-| `<leader>gt` | Run tests (`GoTest`) |
-| `<leader>gb` | Build (`GoBuild`) |
+| `<leader>gi` | Organize imports (via gopls code action) |
+| `<leader>gt` | `go test ./...` in terminal |
+| `<leader>gb` | `go build ./...` in terminal |
+| `<leader>gR` | `go run .` in terminal |
 
 **gopls** is configured with:
 - `gofumpt` formatting
@@ -169,7 +174,7 @@ bear -- make
 
 Format on save is active for all `.go` files.
 
-> **Note:** `<leader>gb` in Go files maps to `GoBuild`, which shadows the gitsigns "blame" binding. Use `<leader>gd` (diff) or `[h`/`]h` hunk navigation instead when you need git info in Go files.
+> **Note:** `<leader>gb` in Go files maps to `go build`, which shadows the gitsigns "blame" binding. Use `<leader>gd` (diff) or `[h`/`]h` hunk navigation instead when you need git info in Go files.
 
 ---
 
@@ -205,6 +210,30 @@ Format on save runs `rustfmt` via rust-analyzer.
 | `[h` / `]h` | Previous / next hunk |
 
 Gutter signs show `│` for added/changed lines, `_` for deleted lines.
+
+---
+
+## Debugger (`<leader>d`)
+
+Powered by **nvim-dap** + **nvim-dap-ui**. Adapters are auto-installed via Mason:
+- `codelldb` — C++ and Rust
+- `delve` — Go
+
+| Key | Action |
+|-----|--------|
+| `<leader>db` | Toggle breakpoint |
+| `<leader>dB` | Set conditional breakpoint |
+| `<leader>dc` | Continue / start session |
+| `<leader>di` | Step into |
+| `<leader>do` | Step over |
+| `<leader>dO` | Step out |
+| `<leader>dr` | Open REPL |
+| `<leader>du` | Toggle DAP UI |
+| `<leader>dx` | Terminate session |
+
+The UI opens automatically when a debug session starts and closes when it ends. Breakpoints appear as `●` in the gutter; the current stopped line is highlighted.
+
+**Rust tip:** Use `<leader>rd` (rustaceanvim debuggables) instead of `<leader>dc` to start — it lets you pick the exact binary/test to debug with the right args.
 
 ---
 
@@ -294,6 +323,7 @@ The config also sets `clipboard=unnamedplus` so all yanks/pastes go through the 
 | mason.nvim | LSP/tool installer |
 | nvim-lspconfig | LSP client configuration |
 | fidget.nvim | LSP progress spinner |
-| vim-cpp-enhanced-highlight | Extra C++ syntax highlighting |
-| vim-go | Go commands (`:GoTest`, `:GoBuild`, etc.) |
+| nvim-dap | Debug adapter protocol client |
+| nvim-dap-ui | Debug UI (auto-opens with session) |
+| mason-nvim-dap | Auto-install debug adapters via Mason |
 | rustaceanvim | Rust-specific LSP features |

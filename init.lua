@@ -137,12 +137,15 @@ vim.api.nvim_create_autocmd('FileType', {
     
     -- Go keymaps
     local opts = { noremap = true, silent = true, buffer = true }
-    vim.keymap.set('n', '<leader>gi', '<cmd>GoImport<cr>', 
-      vim.tbl_extend('force', opts, { desc = "Go imports" }))
-    vim.keymap.set('n', '<leader>gt', '<cmd>GoTest<cr>', 
+    vim.keymap.set('n', '<leader>gi', function()
+      vim.lsp.buf.code_action({ context = { only = { 'source.organizeImports' } }, apply = true })
+    end, vim.tbl_extend('force', opts, { desc = "Organize imports" }))
+    vim.keymap.set('n', '<leader>gt', '<cmd>TermExec cmd="go test ./..."<cr>',
       vim.tbl_extend('force', opts, { desc = "Go test" }))
-    vim.keymap.set('n', '<leader>gb', '<cmd>GoBuild<cr>', 
+    vim.keymap.set('n', '<leader>gb', '<cmd>TermExec cmd="go build ./..."<cr>',
       vim.tbl_extend('force', opts, { desc = "Go build" }))
+    vim.keymap.set('n', '<leader>gR', '<cmd>TermExec cmd="go run ."<cr>',
+      vim.tbl_extend('force', opts, { desc = "Go run" }))
   end
 })
 
@@ -189,7 +192,15 @@ vim.api.nvim_create_autocmd('FileType', {
 -- File operations with fzf
 vim.keymap.set('n', '<C-p>', function()
   vim.fn['fzf#run'](vim.fn['fzf#wrap']({
-    source = 'find . -type f 2>/dev/null',
+    source = (function()
+      if vim.fn.executable('fd') == 1 then
+        return 'fd --type f --hidden --follow --exclude .git'
+      elseif vim.fn.executable('rg') == 1 then
+        return 'rg --files --hidden --glob "!.git"'
+      else
+        return 'find . -type f 2>/dev/null'
+      end
+    end)(),
     sink = function(selected)
       vim.cmd('edit ' .. vim.fn.fnameescape(selected))
     end,
@@ -229,6 +240,7 @@ end, { desc = "Find files" })
 
 vim.keymap.set('n', '<leader>;', '<cmd>Buffers<cr>', { desc = "List buffers" })
 vim.keymap.set('n', '<leader>rg', '<cmd>Rg<cr>', { desc = "Ripgrep search" })
+vim.keymap.set('n', '<leader>ss', function() vim.lsp.buf.workspace_symbol('') end, { desc = "Workspace symbols" })
 
 -- Essential operations
 vim.keymap.set('n', '<leader>w', '<cmd>w<cr>', { desc = "Save file" })
@@ -380,8 +392,8 @@ require("lazy").setup({
         { "<leader>c", group = "code/cpp" },
         { "<leader>g", group = "git/go" },
         { "<leader>r", group = "rust/rename" },
-        { "<leader>d", group = "diagnostics" },
-        { "<leader>s", group = "splits" },
+        { "<leader>d", group = "debug/diag" },
+        { "<leader>s", group = "splits/search" },
       },
     },
   },
@@ -638,12 +650,49 @@ require("lazy").setup({
   },
 
   -- Language-specific
-  { "octol/vim-cpp-enhanced-highlight", ft = { "cpp", "c" } },
-  { "fatih/vim-go", ft = "go", build = ":GoUpdateBinaries" },
+  { "mrcjkb/rustaceanvim", version = "^5", ft = "rust" },
+
+  -- Debugger
   {
-    "mrcjkb/rustaceanvim",
-    version = "^5",
-    ft = "rust",
+    "mfussenegger/nvim-dap",
+    dependencies = {
+      "rcarriga/nvim-dap-ui",
+      "nvim-neotest/nvim-nio",
+      "jay-babu/mason-nvim-dap.nvim",
+    },
+    keys = {
+      { "<leader>db", function() require("dap").toggle_breakpoint() end,                                          desc = "Toggle breakpoint" },
+      { "<leader>dB", function() require("dap").set_breakpoint(vim.fn.input("Condition: ")) end,                  desc = "Conditional breakpoint" },
+      { "<leader>dc", function() require("dap").continue() end,                                                   desc = "Continue" },
+      { "<leader>di", function() require("dap").step_into() end,                                                  desc = "Step into" },
+      { "<leader>do", function() require("dap").step_over() end,                                                  desc = "Step over" },
+      { "<leader>dO", function() require("dap").step_out() end,                                                   desc = "Step out" },
+      { "<leader>dr", function() require("dap").repl.open() end,                                                  desc = "Open REPL" },
+      { "<leader>du", function() require("dapui").toggle() end,                                                   desc = "Toggle DAP UI" },
+      { "<leader>dx", function() require("dap").terminate() end,                                                  desc = "Terminate" },
+    },
+    config = function()
+      local dap = require("dap")
+      local dapui = require("dapui")
+
+      require("mason-nvim-dap").setup({
+        ensure_installed = { "codelldb", "delve" },
+        automatic_installation = true,
+        handlers = {},
+      })
+
+      dapui.setup()
+
+      -- Auto open/close UI with debug session
+      dap.listeners.after.event_initialized["dapui_config"] = function() dapui.open() end
+      dap.listeners.before.event_terminated["dapui_config"] = function() dapui.close() end
+      dap.listeners.before.event_exited["dapui_config"] = function() dapui.close() end
+
+      -- Breakpoint signs
+      vim.fn.sign_define("DapBreakpoint",          { text = "●", texthl = "DiagnosticError" })
+      vim.fn.sign_define("DapBreakpointCondition", { text = "◐", texthl = "DiagnosticWarn" })
+      vim.fn.sign_define("DapStopped",             { text = "▶", texthl = "DiagnosticInfo", linehl = "Visual" })
+    end,
   },
 }, {
   ui = { border = "rounded" },
@@ -755,7 +804,6 @@ vim.lsp.config('clangd', {
     "--function-arg-placeholders",
     "--fallback-style=llvm",
     "--enable-config",
-    "--compile-commands-dir=.",
   },
   filetypes = { 'c', 'cpp', 'objc', 'objcpp', 'cuda' },
   root_markers = {
