@@ -650,7 +650,7 @@ require("lazy").setup({
   },
 
   -- Language-specific
-  { "mrcjkb/rustaceanvim", version = "^5", ft = "rust" },
+  { "mrcjkb/rustaceanvim", version = "^9", ft = "rust" },
 
   -- Debugger
   {
@@ -855,7 +855,8 @@ vim.g.rustaceanvim = {
     capabilities = capabilities,
     settings = {
       ['rust-analyzer'] = {
-        checkOnSave = { command = 'clippy' },
+        checkOnSave = true,
+        check = { command = 'clippy' },
         cargo = { allFeatures = true },
         inlayHints = {
           bindingModeHints = { enable = true },
@@ -866,6 +867,9 @@ vim.g.rustaceanvim = {
     },
   },
 }
+
+-- Disable lspconfig's rust_analyzer (rustaceanvim manages it)
+vim.lsp.enable('rust_analyzer', false)
 
 -- Enable LSP servers
 vim.lsp.enable('clangd')
