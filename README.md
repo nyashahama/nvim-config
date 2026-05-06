@@ -5,6 +5,20 @@ Requires Neovim 0.11+.
 
 ---
 
+## Layout
+
+The config is intentionally split by responsibility:
+
+| Path | Responsibility |
+|------|----------------|
+| `init.lua` | Version gate, leaders, and module loading |
+| `lua/core/` | Options, keymaps, autocommands, commands, lazy.nvim bootstrap |
+| `lua/lang/` | C/C++, Go, and Rust filetype/LSP behavior |
+| `lua/plugins/` | Plugin specs grouped by UI, navigation, editing, LSP, and DAP |
+| `tests/smoke.lua` | Headless load check for the module graph and keymaps |
+
+---
+
 ## First-time Setup
 
 ```bash
@@ -16,6 +30,9 @@ nvim
 
 # 3. Install Treesitter parsers (auto-runs on plugin install, or manually)
 :TSUpdate
+
+# 4. Verify the config loads
+nvim --headless -u NONE -l tests/smoke.lua
 ```
 
 **System dependencies** you need on your PATH:
@@ -26,8 +43,8 @@ nvim
 | `gopls` | Go LSP (or install via Mason) |
 | `rust-analyzer` | Rust LSP (or install via Mason) |
 | `ripgrep` (`rg`) | Live grep + file finding fallback |
-| `fd` | Fast file finding for `<C-p>` (preferred over rg/find) |
-| `bat` | File preview in `<C-p>` |
+| `fd` / `fdfind` | Fast file finding for `<C-p>` (preferred over rg/find) |
+| `bat` / `batcat` | File preview in `<C-p>` |
 | `fzf` | Fuzzy finding (built by lazy.nvim) |
 | `gofumpt` | Stricter Go formatting (used by gopls) |
 | `codelldb` | C++/Rust debugger adapter (auto-installed via Mason) |
@@ -52,8 +69,9 @@ Press `<leader>` and wait — **which-key** will show a popup of available bindi
 |-----|--------|
 | `<C-p>` | Fuzzy find files (fzf) |
 | `<C-p>` then `Ctrl-E` | Create a new file at typed path |
-| `<leader>;` | List open buffers |
-| `<leader>rg` | Live ripgrep across project |
+| `<leader>ff` | Fuzzy find files |
+| `<leader>fb` / `<leader>;` | List open buffers |
+| `<leader>sg` / `<leader>rg` | Live ripgrep across project |
 | `<leader>ss` | Workspace symbol search (LSP) |
 | `<leader><leader>` | Toggle between last two buffers |
 | `-` | Open parent directory (oil.nvim) |
@@ -121,21 +139,21 @@ Ghost text shows the top suggestion inline as you type.
 | `<leader>ca` | Code action |
 | `<leader>cf` | Format buffer |
 | `[d` / `]d` | Previous / next diagnostic |
-| `<leader>de` | Show diagnostic float |
-| `<leader>dl` | Send diagnostics to location list |
+| `<leader>xd` | Show diagnostic float |
+| `<leader>xl` | Send diagnostics to location list |
 
 Symbols under the cursor are **highlighted** across the buffer automatically on `CursorHold`.
 
 ---
 
-## C++ (`<leader>c`)
+## C++ (`<localleader>`, comma by default)
 
 | Key | Action |
 |-----|--------|
-| `<leader>ch` | Switch between header and source (`ClangdSwitchSourceHeader`) |
-| `<leader>ct` | Type hierarchy |
-| `<leader>cs` | Symbol info |
-| `<leader>cm` | clangd memory usage |
+| `<localleader>h` | Switch between header and source (`ClangdSwitchSourceHeader`) |
+| `<localleader>t` | Type hierarchy |
+| `<localleader>s` | Symbol info |
+| `<localleader>m` | clangd memory usage |
 
 **clangd** is configured with:
 - Background indexing
@@ -157,14 +175,14 @@ bear -- make
 
 ---
 
-## Go (`<leader>g`)
+## Go (`<localleader>`, comma by default)
 
 | Key | Action |
 |-----|--------|
-| `<leader>gi` | Organize imports (via gopls code action) |
-| `<leader>gt` | `go test ./...` in terminal |
-| `<leader>gb` | `go build ./...` in terminal |
-| `<leader>gR` | `go run .` in terminal |
+| `<localleader>i` | Organize imports (via gopls code action) |
+| `<localleader>t` | `go test ./...` in terminal |
+| `<localleader>b` | `go build ./...` in terminal |
+| `<localleader>r` | `go run .` in terminal |
 
 **gopls** is configured with:
 - `gofumpt` formatting
@@ -174,19 +192,17 @@ bear -- make
 
 Format on save is active for all `.go` files.
 
-> **Note:** `<leader>gb` in Go files maps to `go build`, which shadows the gitsigns "blame" binding. Use `<leader>gd` (diff) or `[h`/`]h` hunk navigation instead when you need git info in Go files.
-
 ---
 
-## Rust (`<leader>r`)
+## Rust (`<localleader>`, comma by default)
 
 | Key | Action |
 |-----|--------|
-| `<leader>rr` | Show runnables (tests, binaries, examples) |
-| `<leader>rd` | Show debuggables |
-| `<leader>re` | Expand macro under cursor |
-| `<leader>rc` | Open `Cargo.toml` |
-| `<leader>rp` | Go to parent module |
+| `<localleader>r` | Show runnables (tests, binaries, examples) |
+| `<localleader>d` | Show debuggables |
+| `<localleader>e` | Expand macro under cursor |
+| `<localleader>c` | Open `Cargo.toml` |
+| `<localleader>p` | Go to parent module |
 
 **rust-analyzer** via **rustaceanvim** is configured with:
 - `clippy` on save (instead of `cargo check`)
@@ -195,7 +211,7 @@ Format on save is active for all `.go` files.
 
 Format on save runs `rustfmt` via rust-analyzer.
 
-**Tip:** `<leader>rr` is your best friend — it finds all runnable targets in the workspace and lets you pick one. Much faster than typing `cargo run --example foo` manually.
+**Tip:** `<localleader>r` is your best friend — it finds all runnable targets in the workspace and lets you pick one. Much faster than typing `cargo run --example foo` manually.
 
 ---
 
@@ -209,7 +225,7 @@ Format on save runs `rustfmt` via rust-analyzer.
 | `<leader>gr` | Reset hunk to HEAD |
 | `[h` / `]h` | Previous / next hunk |
 
-Gutter signs show `│` for added/changed lines, `_` for deleted lines.
+Gutter signs show `|` for added/changed lines, `_` for deleted lines.
 
 ---
 
@@ -231,9 +247,9 @@ Powered by **nvim-dap** + **nvim-dap-ui**. Adapters are auto-installed via Mason
 | `<leader>du` | Toggle DAP UI |
 | `<leader>dx` | Terminate session |
 
-The UI opens automatically when a debug session starts and closes when it ends. Breakpoints appear as `●` in the gutter; the current stopped line is highlighted.
+The UI opens automatically when a debug session starts and closes when it ends. Debug signs use simple gutter markers: `B` for breakpoints, `C` for conditional breakpoints, and `>` for the stopped line.
 
-**Rust tip:** Use `<leader>rd` (rustaceanvim debuggables) instead of `<leader>dc` to start — it lets you pick the exact binary/test to debug with the right args.
+**Rust tip:** Use `<localleader>d` (rustaceanvim debuggables) instead of `<leader>dc` to start — it lets you pick the exact binary/test to debug with the right args.
 
 ---
 
@@ -252,8 +268,8 @@ The terminal floats at 90% width × 80% height with a rounded border.
 
 | Key | Action |
 |-----|--------|
-| `<leader>co` | Open quickfix list |
-| `<leader>cc` | Close quickfix list |
+| `<leader>xq` | Open quickfix list |
+| `<leader>xQ` | Close quickfix list |
 | `[q` / `]q` | Previous / next quickfix entry |
 
 ---
@@ -275,6 +291,7 @@ The config also sets `clipboard=unnamedplus` so all yanks/pastes go through the 
 |-----|--------|
 | `<C-h>` | Clear search highlights |
 | `n` / `N` | Next/prev result, centered on screen |
+| `<leader>sg` | Search project with ripgrep |
 
 ---
 
