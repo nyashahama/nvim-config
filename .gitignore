@@ -1,0 +1,7 @@
+.claude/
+*.local
+*.bak
+*.tmp
+.env
+.env.*
+!.env.example

@@ -1,0 +1,55 @@
+[user]
+	name = Nyasha Hama
+	email = nyashahama45@gmail.com
+
+[init]
+	defaultBranch = main
+
+[core]
+	editor = nvim
+	excludesFile = ~/.config/git/ignore
+	pager = less -FRX
+
+[pull]
+	ff = only
+
+[push]
+	default = simple
+	autoSetupRemote = true
+
+[fetch]
+	prune = true
+
+[rebase]
+	autoSquash = true
+	autoStash = true
+
+[rerere]
+	enabled = true
+
+[branch]
+	sort = -committerdate
+
+[tag]
+	sort = version:refname
+
+[credential "https://github.com"]
+	helper =
+	helper = !/usr/bin/gh auth git-credential
+
+[credential "https://gist.github.com"]
+	helper =
+	helper = !/usr/bin/gh auth git-credential
+
+[alias]
+	br = branch
+	ci = commit
+	co = checkout
+	df = diff
+	lg = log --oneline --graph --decorate --all
+	st = status --short --branch
+	sw = switch
+	uncommit = reset --soft HEAD~1
+
+[include]
+	path = ~/.gitconfig.local
