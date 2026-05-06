@@ -1,12 +1,11 @@
-# Machine Config
+# Dotfiles
 
-Personal dotfiles for an Ubuntu-based development workstation. The repo uses a
-Stow-compatible package layout and keeps each tool's config in the same shape it
-will have under `$HOME`.
+Personal dotfiles for an Ubuntu-based development workstation. The repository
+lives at `~/.dotfiles`, uses a Stow-compatible package layout, and keeps each
+tool's config in the same shape it will have under `$HOME`.
 
-The current checkout still lives at `~/.config/nvim`, so the Neovim package is
-present but protected from accidental self-stowing. The clean long-term home for
-this repo is `~/.dotfiles`.
+`~/.config/nvim` currently points at the Neovim package inside this repo so the
+editor keeps working before GNU Stow is installed.
 
 ---
 
@@ -61,22 +60,24 @@ Apply non-Neovim packages:
 
 ---
 
-## Neovim Migration
+## Neovim
 
-Because this repository currently is the live `~/.config/nvim` directory,
-`install.sh` refuses to stow the `nvim` package from this location. To finish the
-dotfiles migration cleanly:
+The local Neovim config is available through this symlink:
+
+```text
+~/.config/nvim -> ~/.dotfiles/nvim/.config/nvim
+```
+
+The default install excludes `nvim` because this link already exists. If you want
+GNU Stow to recreate it later, confirm the link target, remove only the symlink,
+then stow the package:
 
 ```bash
-cd ~
-mv ~/.config/nvim ~/.dotfiles
-cd ~/.dotfiles
+readlink ~/.config/nvim
+unlink ~/.config/nvim
 ./install.sh --dry-run nvim
 ./install.sh --apply nvim
 ```
-
-After that, `~/.config/nvim` should be a symlink managed by Stow, and this repo
-should live at `~/.dotfiles`.
 
 ---
 
