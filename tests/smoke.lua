@@ -29,9 +29,28 @@ local function has_normal_map(lhs)
   return vim.fn.maparg(lhs, "n") ~= ""
 end
 
+local function find_plugin(name)
+  for _, spec in ipairs(require("plugins")) do
+    if spec[1] == name then
+      return spec
+    end
+  end
+  return nil
+end
+
+local function contains(list, value)
+  for _, item in ipairs(list or {}) do
+    if item == value then
+      return true
+    end
+  end
+  return false
+end
+
 assert(has_normal_map("<C-p>"), "expected <C-p> file finder mapping")
 assert(has_normal_map("<leader>ff"), "expected <leader>ff file finder mapping")
 assert(has_normal_map("<leader>fp"), "expected <leader>fp project finder mapping")
+assert(has_normal_map("<leader>mp"), "expected <leader>mp markdown preview toggle mapping")
 assert(has_normal_map("<leader>sg"), "expected <leader>sg live grep mapping")
 assert(has_normal_map("<leader>op"), "expected <leader>op PR status mapping")
 assert(has_normal_map("<leader>od"), "expected <leader>od repo doctor mapping")
@@ -40,6 +59,17 @@ assert(has_normal_map("<leader>ob"), "expected <leader>ob backup mapping")
 assert(has_normal_map("<leader>os"), "expected <leader>os signing mapping")
 assert(has_normal_map("<leader>of"), "expected <leader>of font/theme mapping")
 assert(has_normal_map("<leader>xq"), "expected <leader>xq quickfix mapping")
+
+local markdown_preview = find_plugin("MeanderingProgrammer/render-markdown.nvim")
+assert(markdown_preview ~= nil, "expected render-markdown.nvim plugin spec")
+assert(markdown_preview.opts ~= nil, "expected render-markdown.nvim opts")
+assert(markdown_preview.opts.enabled == false, "markdown preview should be disabled by default")
+
+local treesitter = find_plugin("nvim-treesitter/nvim-treesitter")
+assert(treesitter ~= nil, "expected nvim-treesitter plugin spec")
+assert(treesitter.opts ~= nil, "expected nvim-treesitter opts")
+assert(contains(treesitter.opts.ensure_installed, "markdown"), "expected markdown treesitter parser")
+assert(contains(treesitter.opts.ensure_installed, "markdown_inline"), "expected markdown_inline treesitter parser")
 
 local expected_commands = {
   "DevProject",

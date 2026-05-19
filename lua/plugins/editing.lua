@@ -54,38 +54,59 @@ return {
     },
   },
   {
+    "MeanderingProgrammer/render-markdown.nvim",
+    dependencies = {
+      "nvim-treesitter/nvim-treesitter",
+      "nvim-tree/nvim-web-devicons",
+    },
+    ft = { "markdown" },
+    cmd = "RenderMarkdown",
+    opts = {
+      enabled = false,
+      file_types = { "markdown" },
+    },
+  },
+  {
     "nvim-treesitter/nvim-treesitter",
     build = ":TSUpdate",
     event = { "BufReadPost", "BufNewFile" },
-    config = function()
+    opts = {
+      ensure_installed = {
+        "lua",
+        "c",
+        "cpp",
+        "go",
+        "rust",
+        "make",
+        "cmake",
+        "bash",
+        "json",
+        "yaml",
+        "toml",
+        "markdown",
+        "markdown_inline",
+      },
+      highlight = {
+        enable = true,
+        additional_vim_regex_highlighting = false,
+      },
+      indent = { enable = true },
+      incremental_selection = {
+        enable = true,
+        keymaps = {
+          init_selection = "<CR>",
+          node_incremental = "<CR>",
+          scope_incremental = "<S-CR>",
+          node_decremental = "<BS>",
+        },
+      },
+    },
+    config = function(_, opts)
       require("nvim-treesitter.configs").setup({
-        ensure_installed = {
-          "lua",
-          "c",
-          "cpp",
-          "go",
-          "rust",
-          "make",
-          "cmake",
-          "bash",
-          "json",
-          "yaml",
-          "toml",
-        },
-        highlight = {
-          enable = true,
-          additional_vim_regex_highlighting = false,
-        },
-        indent = { enable = true },
-        incremental_selection = {
-          enable = true,
-          keymaps = {
-            init_selection = "<CR>",
-            node_incremental = "<CR>",
-            scope_incremental = "<S-CR>",
-            node_decremental = "<BS>",
-          },
-        },
+        ensure_installed = opts.ensure_installed,
+        highlight = opts.highlight,
+        indent = opts.indent,
+        incremental_selection = opts.incremental_selection,
       })
     end,
   },

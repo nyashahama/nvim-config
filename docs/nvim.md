@@ -86,6 +86,21 @@ Inside **oil.nvim**: navigate with `hjkl`, press `Enter` to open, `-` to go up, 
 
 ---
 
+## Markdown
+
+Markdown files open as editable source by default. Use `<leader>mp` to toggle a
+rendered in-buffer preview for the current Markdown buffer, then scroll and move
+around normally inside Neovim.
+
+The preview is powered by **render-markdown.nvim** and uses the `markdown` and
+`markdown_inline` Treesitter parsers.
+
+| Key | Action |
+|-----|--------|
+| `<leader>mp` | Toggle rendered Markdown preview for the current buffer |
+
+---
+
 ## Motion & Editing
 
 | Key | Action |

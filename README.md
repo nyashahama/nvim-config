@@ -132,6 +132,12 @@ Useful Neovim workstation commands:
 :NvimTrimLspLog  rotate oversized LSP log
 ```
 
+Useful Neovim reading/editing keys:
+
+```text
+<leader>mp      toggle rendered Markdown preview for the current buffer
+```
+
 VS Code user config is still managed by the `vscode` package:
 
 ```text

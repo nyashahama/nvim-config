@@ -80,11 +80,26 @@ function M.find_files()
   }))
 end
 
+function M.toggle_markdown_preview()
+  local ok, lazy = pcall(require, "lazy")
+  if ok then
+    pcall(lazy.load, { plugins = { "render-markdown.nvim" } })
+  end
+
+  if vim.fn.exists(":RenderMarkdown") ~= 2 then
+    vim.notify("render-markdown.nvim is not available", vim.log.levels.ERROR)
+    return
+  end
+
+  vim.cmd("RenderMarkdown buf_toggle")
+end
+
 function M.setup()
   map("n", "<C-p>", M.find_files, { desc = "Find files" })
   map("n", "<leader>ff", M.find_files, { desc = "Find files" })
   map("n", "<leader>fb", "<cmd>Buffers<cr>", { desc = "Find buffers" })
   map("n", "<leader>;", "<cmd>Buffers<cr>", { desc = "Find buffers" })
+  map("n", "<leader>mp", M.toggle_markdown_preview, { desc = "Toggle Markdown preview" })
   map("n", "<leader>sg", "<cmd>Rg<cr>", { desc = "Search by grep" })
   map("n", "<leader>rg", "<cmd>Rg<cr>", { desc = "Search by grep" })
   map("n", "<leader>ss", function()
