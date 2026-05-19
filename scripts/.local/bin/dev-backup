@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+	cat <<'USAGE'
+Usage:
+  dev-backup --check
+  dev-backup --run
+
+Creates a timestamped, secrets-safe backup of the workstation config surface.
+Private SSH keys, known_hosts, tokens, browser state, and editor caches are not
+copied.
+USAGE
+}
+
+mode="${1:---check}"
+case "$mode" in
+--check | --run) ;;
+-h | --help)
+	usage
+	exit 0
+	;;
+*)
+	usage >&2
+	exit 2
+	;;
+esac
+
+backup_root="${DOTFILES_BACKUP_DIR:-$HOME/.dotfiles-backups}"
+timestamp="${DEV_BACKUP_TIMESTAMP:-$(date +%Y%m%d-%H%M%S)}"
+target="$backup_root/$timestamp-workstation"
+
+paths=(
+	"$HOME/.zprofile"
+	"$HOME/.zshrc"
+	"$HOME/.config/zsh"
+	"$HOME/.profile"
+	"$HOME/.bashrc"
+	"$HOME/.config/bash"
+	"$HOME/.gitconfig"
+	"$HOME/.config/git/ignore"
+	"$HOME/.config/git/allowed_signers.local"
+	"$HOME/.tmux.conf"
+	"$HOME/.config/starship.toml"
+	"$HOME/.config/mise/config.toml"
+	"$HOME/.config/mise/tasks"
+	"$HOME/.config/environment.d/10-terminal.conf"
+	"$HOME/.ssh/config"
+	"$HOME/.config/nvim"
+	"$HOME/.config/ghostty"
+	"$HOME/.config/Code/User/settings.json"
+	"$HOME/.config/Code/User/keybindings.json"
+	"$HOME/.config/Code/User/snippets"
+)
+
+relative_dest() {
+	local path="$1"
+	local rel
+
+	if [[ "$path" == "$HOME"/* ]]; then
+		rel="${path#"$HOME"/}"
+	else
+		rel="${path#/}"
+	fi
+
+	printf '%s/home/%s' "$target" "$rel"
+}
+
+if [[ "$mode" == "--check" ]]; then
+	printf 'would create: %s\n' "$target"
+	printf 'would copy:\n'
+	for path in "${paths[@]}"; do
+		if [[ -e "$path" || -L "$path" ]]; then
+			printf '  %s\n' "${path#"$HOME"/}"
+		fi
+	done
+	cat <<'NOTE'
+excluded:
+  .ssh/id_*
+  .ssh/known_hosts*
+  .gitconfig.local
+  editor caches, browser state, tokens, and password stores
+NOTE
+	exit 0
+fi
+
+manifest="$target/MANIFEST.txt"
+mkdir -p "$target"
+: >"$manifest"
+
+for path in "${paths[@]}"; do
+	if [[ ! -e "$path" && ! -L "$path" ]]; then
+		continue
+	fi
+
+	dest="$(relative_dest "$path")"
+	mkdir -p "$(dirname "$dest")"
+	cp -a "$path" "$dest"
+	printf '%s\n' "$path" >>"$manifest"
+done
+
+if [[ -d "$HOME/.dotfiles/.git" ]]; then
+	git -C "$HOME/.dotfiles" status --short --untracked-files=all >"$target/dotfiles-git-status.txt"
+	git -C "$HOME/.dotfiles" rev-parse --short HEAD >"$target/dotfiles-head.txt" 2>/dev/null || true
+fi
+
+printf 'backup created: %s\n' "$target"

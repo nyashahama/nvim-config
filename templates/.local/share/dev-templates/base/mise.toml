@@ -1,0 +1,11 @@
+[settings]
+experimental = true
+legacy_version_file = true
+
+[tasks.doctor]
+description = "Show useful commands for this repository"
+run = "dev-repo-doctor"
+
+[tasks.check-secrets]
+description = "Scan the repository for committed secrets"
+run = "gitleaks detect --source . --redact"

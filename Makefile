@@ -19,4 +19,9 @@ doctor:
 
 test:
 	bash tests/dotfiles_layout.sh
+	bash tests/vscode_config.sh
+	bash tests/dev_init.sh
+	bash tests/workstation_workflow.sh
+	bash tests/neovim_primary.sh
+	bash tests/shell_startup.sh
 	nvim --headless -u NONE -l tests/smoke.lua

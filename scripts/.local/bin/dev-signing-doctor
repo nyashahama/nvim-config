@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+	cat <<'USAGE'
+Usage:
+  dev-signing-doctor --check
+  dev-signing-doctor --apply
+  dev-signing-doctor --github-add
+
+Checks and configures SSH-backed Git commit signing. Apply mode uses the public
+key at DEV_SIGNING_KEY or ~/.ssh/id_ed25519.pub and writes only public signing
+metadata to ~/.config/git/allowed_signers.local.
+USAGE
+}
+
+mode="${1:---check}"
+case "$mode" in
+--check | --apply | --github-add) ;;
+-h | --help)
+	usage
+	exit 0
+	;;
+*)
+	usage >&2
+	exit 2
+	;;
+esac
+
+key_path="${DEV_SIGNING_KEY:-$HOME/.ssh/id_ed25519.pub}"
+allowed_signers="${DEV_ALLOWED_SIGNERS:-$HOME/.config/git/allowed_signers.local}"
+home_token='~'
+
+status_line() {
+	local label="$1"
+	local value="$2"
+	printf '  %-28s %s\n' "$label" "$value"
+}
+
+config_value() {
+	git config --global --get "$1" 2>/dev/null || true
+}
+
+write_allowed_signers() {
+	local email="$1"
+	local key="$2"
+
+	mkdir -p "$(dirname "$allowed_signers")"
+	printf '%s %s\n' "$email" "$(cat "$key")" >"$allowed_signers"
+	chmod 600 "$allowed_signers"
+}
+
+if [[ "$mode" == "--github-add" ]]; then
+	if [[ ! -r "$key_path" ]]; then
+		printf 'missing readable public signing key: %s\n' "$key_path" >&2
+		exit 1
+	fi
+	if ! command -v gh >/dev/null 2>&1 || ! gh auth status >/dev/null 2>&1; then
+		printf 'GitHub CLI is not authenticated.\n' >&2
+		exit 2
+	fi
+
+	title="${DEV_SIGNING_TITLE:-$(hostname)-git-signing}"
+	if gh api --method POST user/ssh_signing_keys -f title="$title" -f key="$(cat "$key_path")" >/tmp/dev-signing-github-add.out 2>/tmp/dev-signing-github-add.err; then
+		printf 'GitHub signing key added: %s\n' "$title"
+		exit 0
+	fi
+
+	if grep -F 'admin:ssh_signing_key' /tmp/dev-signing-github-add.err >/dev/null 2>&1; then
+		printf 'refresh GitHub CLI scope first: gh auth refresh -h github.com -s admin:ssh_signing_key\n' >&2
+		exit 2
+	fi
+	if grep -Eiq 'already|key is already in use|422' /tmp/dev-signing-github-add.err; then
+		printf 'GitHub signing key already exists or could not be duplicated.\n'
+		exit 0
+	fi
+
+	cat /tmp/dev-signing-github-add.err >&2
+	exit 1
+fi
+
+if [[ "$mode" == "--apply" ]]; then
+	if [[ ! -r "$key_path" ]]; then
+		printf 'missing readable public signing key: %s\n' "$key_path" >&2
+		exit 1
+	fi
+
+	email="$(git config --global --get user.email 2>/dev/null || true)"
+	if [[ -z "$email" ]]; then
+		printf 'git user.email is not configured\n' >&2
+		exit 1
+	fi
+
+	config_key_path="$key_path"
+	config_allowed_signers="$allowed_signers"
+	if [[ "$config_key_path" == "$HOME"/* ]]; then
+		config_key_path="$home_token/${config_key_path#"$HOME"/}"
+	fi
+	if [[ "$config_allowed_signers" == "$HOME"/* ]]; then
+		config_allowed_signers="$home_token/${config_allowed_signers#"$HOME"/}"
+	fi
+
+	write_allowed_signers "$email" "$key_path"
+	git config --global gpg.format ssh
+	git config --global user.signingkey "$config_key_path"
+	git config --global gpg.ssh.allowedSignersFile "$config_allowed_signers"
+	git config --global commit.gpgsign true
+	git config --global commit.template "$home_token/.config/git/commit-template"
+	git config --global commit.verbose true
+	printf 'Git signing configured with %s\n' "$key_path"
+fi
+
+printf 'Git signing:\n'
+status_line "commit.gpgsign" "$(config_value commit.gpgsign)"
+status_line "gpg.format" "$(config_value gpg.format)"
+status_line "user.signingkey" "$(config_value user.signingkey)"
+status_line "allowedSignersFile" "$(config_value gpg.ssh.allowedSignersFile)"
+
+if [[ -r "$key_path" ]]; then
+	status_line "public key" "ok"
+else
+	status_line "public key" "missing"
+fi
+
+if [[ -r "$allowed_signers" ]]; then
+	status_line "allowed signers" "ok"
+else
+	status_line "allowed signers" "missing"
+fi
+
+if ssh-add -l >/dev/null 2>&1; then
+	status_line "ssh-agent" "has key"
+else
+	status_line "ssh-agent" "no key loaded"
+fi
+
+if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+	if gh api user/ssh_signing_keys --jq 'length' >/tmp/dev-signing-github-count 2>/tmp/dev-signing-github-err; then
+		status_line "GitHub signing keys" "$(cat /tmp/dev-signing-github-count)"
+	elif grep -F 'admin:ssh_signing_key' /tmp/dev-signing-github-err >/dev/null 2>&1; then
+		status_line "GitHub signing keys" "refresh scope: gh auth refresh -h github.com -s admin:ssh_signing_key"
+	else
+		status_line "GitHub signing keys" "check manually"
+	fi
+else
+	status_line "GitHub signing keys" "gh not authenticated"
+fi

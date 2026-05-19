@@ -6,10 +6,10 @@ path=(
   "$HOME/.cargo/bin"
   "$HOME/go/bin"
   "$HOME/.pub-cache/bin"
+  "$BUN_INSTALL/bin"
+  "$HOME/.opencode/bin"
   "/usr/local/bin"
   $path
 )
 
-export GOPATH="${GOPATH:-$HOME/go}"
-export GO111MODULE="${GO111MODULE:-on}"
 export PATH

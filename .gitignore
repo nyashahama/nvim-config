@@ -1,5 +1,10 @@
 .claude/
+docs/superpowers/
 *.local
+!scripts/.local/
+!scripts/.local/**
+!templates/.local/
+!templates/.local/**
 *.bak
 *.tmp
 .env

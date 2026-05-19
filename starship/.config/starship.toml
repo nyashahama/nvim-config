@@ -1,0 +1,32 @@
+add_newline = false
+command_timeout = 1000
+
+[character]
+success_symbol = "[>](bold green)"
+error_symbol = "[>](bold red)"
+vimcmd_symbol = "[<](bold green)"
+
+[directory]
+truncation_length = 4
+truncate_to_repo = false
+
+[git_branch]
+symbol = "git "
+
+[git_status]
+style = "yellow"
+
+[nodejs]
+symbol = "node "
+
+[golang]
+symbol = "go "
+
+[rust]
+symbol = "rs "
+
+[python]
+symbol = "py "
+
+[docker_context]
+disabled = true

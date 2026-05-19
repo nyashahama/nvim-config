@@ -1,0 +1,10 @@
+export EDITOR="${EDITOR:-nvim}"
+export VISUAL="${VISUAL:-nvim}"
+export PAGER="${PAGER:-less}"
+export LESS="${LESS:--FRX}"
+export TERMINAL="${TERMINAL:-ghostty}"
+
+export GOPATH="${GOPATH:-$HOME/go}"
+export GO111MODULE="${GO111MODULE:-on}"
+export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"

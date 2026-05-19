@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo="${DOTFILES_REPO:-$HOME/.dotfiles}"
+
+usage() {
+	cat <<'USAGE'
+Usage:
+  dev-update --check
+  dev-update --apply
+
+Updates the managed workstation tool layer. Check mode prints the commands.
+Apply mode runs them.
+USAGE
+}
+
+mode="${1:---check}"
+case "$mode" in
+--check | --apply) ;;
+-h | --help)
+	usage
+	exit 0
+	;;
+*)
+	usage >&2
+	exit 2
+	;;
+esac
+
+mapfile -t apt_packages < <(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$repo/system/packages.apt")
+apt_package_line="${apt_packages[*]}"
+
+run_bash_line() {
+	local command_line="$1"
+	if [[ "$mode" == "--check" ]]; then
+		printf '  bash -lc %q\n' "$command_line"
+		return
+	fi
+
+	printf '\n==> %s\n' "$command_line"
+	bash -lc "$command_line"
+}
+
+run_zsh_line() {
+	local command_line="$1"
+	if [[ "$mode" == "--check" ]]; then
+		printf '  zsh -i -c %q\n' "$command_line"
+		return
+	fi
+
+	printf '\n==> %s\n' "$command_line"
+	zsh -i -c "$command_line"
+}
+
+if [[ "$mode" == "--check" ]]; then
+	printf 'Commands dev-update --apply would run:\n'
+fi
+
+run_bash_line "pkexec env DEBIAN_FRONTEND=noninteractive apt-get update"
+run_bash_line "pkexec env DEBIAN_FRONTEND=noninteractive apt-get install -y $apt_package_line"
+run_zsh_line "mise self-update -y || true"
+run_zsh_line "mise install"
+run_zsh_line "rustup update"
+run_zsh_line "rustup component add clippy rustfmt rust-src rust-analyzer"
+run_zsh_line "go install golang.org/x/tools/gopls@latest"
+run_zsh_line "go install mvdan.cc/gofumpt@latest"
+run_zsh_line "go install golang.org/x/vuln/cmd/govulncheck@latest"
+run_zsh_line "go install github.com/go-delve/delve/cmd/dlv@latest"
+run_zsh_line "go install honnef.co/go/tools/cmd/staticcheck@latest"
+run_zsh_line "go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest"
+run_zsh_line "go install github.com/rhysd/actionlint/cmd/actionlint@latest"
+run_zsh_line "uv tool upgrade ruff"
+run_zsh_line "uv tool upgrade pre-commit"
+run_zsh_line "npm install -g @devcontainers/cli"
+run_zsh_line "while IFS= read -r extension; do [[ -n \"\$extension\" ]] && code --install-extension \"\$extension\" --force; done < \"$repo/vscode/.config/Code/User/extensions.txt\""
+run_zsh_line "mise reshim"

@@ -1,0 +1,44 @@
+[tools]
+go = "latest"
+node = "lts"
+uv = "latest"
+
+[settings]
+auto_install = true
+exec_auto_install = true
+experimental = true
+idiomatic_version_file_enable_tools = ["node", "python", "go"]
+jobs = 8
+legacy_version_file = true
+not_found_auto_install = false
+
+[settings.node]
+corepack = true
+
+[settings.python]
+uv_venv_auto = true
+
+[settings.status]
+missing_tools = "if_other_versions_installed"
+show_env = false
+show_tools = false
+
+[tasks.test]
+description = "Run dotfiles tests"
+run = "make -C ~/.dotfiles test"
+
+[tasks.doctor]
+description = "Audit workstation setup"
+run = "~/.dotfiles/scripts/.local/bin/dotfiles-doctor"
+
+[tasks.check]
+description = "Run bootstrap check, doctor, and tests"
+run = "make -C ~/.dotfiles check"
+
+[tasks.update-check]
+description = "Preview workstation update commands"
+run = "~/.dotfiles/scripts/.local/bin/dev-update --check"
+
+[tasks.update]
+description = "Apply workstation updates"
+run = "~/.dotfiles/scripts/.local/bin/dev-update --apply"

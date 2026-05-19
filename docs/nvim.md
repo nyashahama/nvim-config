@@ -1,6 +1,9 @@
 # Neovim Config
 
-Systems programming configuration for **C++**, **Go**, and **Rust**.
+Primary editor configuration for daily development. It is optimized for
+**C++**, **Go**, and **Rust**, with workstation commands for project switching,
+GitHub triage, databases, and performance checks.
+
 Requires Neovim 0.11+.
 
 ---
@@ -70,6 +73,7 @@ Press `<leader>` and wait — **which-key** will show a popup of available bindi
 | `<C-p>` | Fuzzy find files (fzf) |
 | `<C-p>` then `Ctrl-E` | Create a new file at typed path |
 | `<leader>ff` | Fuzzy find files |
+| `<leader>fp` | Fuzzy find projects |
 | `<leader>fb` / `<leader>;` | List open buffers |
 | `<leader>sg` / `<leader>rg` | Live ripgrep across project |
 | `<leader>ss` | Workspace symbol search (LSP) |
@@ -229,6 +233,41 @@ Gutter signs show `|` for added/changed lines, `_` for deleted lines.
 
 ---
 
+## Workstation Ops (`<leader>o`)
+
+These commands bridge Neovim to the same `dev-*` scripts available in the shell.
+They open in a floating terminal when `toggleterm.nvim` is available.
+
+| Key | Command | Action |
+|-----|---------|--------|
+| `<leader>od` | `:DevDoctor` | Run `dev-repo-doctor` |
+| `<leader>op` | `:DevPr` | Show current PR/upstream/check context |
+| `<leader>oc` | `:DevChecks` | Show PR checks or recent workflow runs |
+| `<leader>or` | `:DevReviews` | Show formal reviews, top-level comments, and inline review comments |
+| `<leader>oP` | `:DevOpenPr` | Open PR create/view flow |
+| `<leader>ou` | `:DevUpdate` | Preview workstation update commands |
+| `<leader>ob` | `:DevBackup` | Create a workstation config backup |
+| `<leader>os` | `:DevSigning` | Check Git SSH signing readiness |
+| `<leader>of` | `:DevFonts` | Check terminal font/theme setup |
+| `<leader>oT` | `:DevPerf` | Run performance audit |
+| `<leader>ol` | `:NvimTrimLspLog` | Rotate an oversized LSP log |
+
+Database console commands:
+
+| Command | Action |
+|---------|--------|
+| `:DbPsql [url]` | Open `psql`, using `$DATABASE_URL` when no URL is passed |
+| `:DbRedis [args]` | Open `redis-cli` |
+| `:DbSqlite [file]` | Open `sqlite3` |
+
+Project switching:
+
+| Command | Action |
+|---------|--------|
+| `:DevProject` | Pick from projects under `~/dev`, `~/projects`, and `~/.dotfiles` |
+
+---
+
 ## Debugger (`<leader>d`)
 
 Powered by **nvim-dap** + **nvim-dap-ui**. Adapters are auto-installed via Mason:
@@ -301,6 +340,18 @@ The config also sets `clipboard=unnamedplus` so all yanks/pastes go through the 
 |---------|--------|
 | `:CreateClangdConfig` | Write a `.clangd` file for the current C++ project |
 | `:LspInfo` | Show which LSP clients are attached to the current buffer |
+| `:DevProject` | Pick and open a project |
+| `:DevDoctor` | Run repo diagnostics |
+| `:DevPr` | Show PR status |
+| `:DevChecks` | Show PR checks or workflow runs |
+| `:DevReviews` | Show formal reviews, top-level comments, and inline review comments |
+| `:DevOpenPr` | Open PR create/view flow |
+| `:DevBackup` | Create a workstation config backup |
+| `:DevSigning` | Check Git SSH signing readiness |
+| `:DevFonts` | Check terminal font/theme setup |
+| `:DevPerf` | Run workstation performance audit |
+| `:NvimTrimLspLog` | Rotate an oversized LSP log |
+| `:DbPsql` / `:DbRedis` / `:DbSqlite` | Open database consoles |
 | `:Mason` | Open Mason UI to install/manage LSP servers and tools |
 | `:Lazy` | Open lazy.nvim UI to update or inspect plugins |
 | `:TSUpdate` | Update Treesitter parsers |

@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+	cat <<'USAGE'
+Usage:
+  dev-repo-doctor [path]
+
+Detects common project types and prints the high-signal commands for working in
+the repository. It does not run tests by default.
+USAGE
+}
+
+case "${1:-}" in
+-h | --help)
+	usage
+	exit 0
+	;;
+esac
+
+repo="${1:-$PWD}"
+if [[ ! -d "$repo" ]]; then
+	printf 'not a directory: %s\n' "$repo" >&2
+	exit 2
+fi
+
+cd "$repo"
+
+heading() {
+	printf '\n== %s ==\n' "$1"
+}
+
+has_file() {
+	[[ -f "$1" ]]
+}
+
+has_any_file() {
+	local file
+	for file in "$@"; do
+		[[ -e "$file" ]] && return 0
+	done
+	return 1
+}
+
+command_line() {
+	printf '  %s\n' "$*"
+}
+
+heading "Project"
+printf '  path    %s\n' "$PWD"
+
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+	branch="$(git branch --show-current 2>/dev/null || true)"
+	root="$(git rev-parse --show-toplevel)"
+	dirty="$(git status --short | wc -l | tr -d ' ')"
+	printf '  git     %s\n' "$root"
+	printf '  branch  %s\n' "${branch:-detached}"
+	printf '  dirty   %s file(s)\n' "$dirty"
+	command -v gitleaks >/dev/null 2>&1 && command_line "gitleaks detect --source . --redact"
+else
+	printf '  git     not a git repository\n'
+fi
+
+if has_file Makefile; then
+	heading "Make"
+	if grep -Eq '^(verify|check|test|lint|fmt|format):' Makefile; then
+		grep -E '^(verify|check|test|lint|fmt|format):' Makefile | sed 's/:.*//' | sort -u | sed 's/^/  make /'
+	else
+		command_line "make"
+	fi
+fi
+
+if has_any_file justfile Justfile .justfile; then
+	heading "Just"
+	if command -v just >/dev/null 2>&1; then
+		just --list --unsorted 2>/dev/null | sed 's/^/  /' || command_line "just --list"
+	else
+		command_line "install just, then run: just --list"
+	fi
+fi
+
+if has_file package.json; then
+	heading "Node"
+	manager="npm"
+	if has_file pnpm-lock.yaml; then
+		manager="pnpm"
+	elif has_file yarn.lock; then
+		manager="yarn"
+	elif has_file package-lock.json; then
+		manager="npm"
+	elif command -v jq >/dev/null 2>&1; then
+		package_manager="$(jq -r '.packageManager // empty' package.json 2>/dev/null || true)"
+		[[ "$package_manager" == pnpm@* ]] && manager="pnpm"
+		[[ "$package_manager" == yarn@* ]] && manager="yarn"
+	fi
+	command_line "corepack enable"
+	command_line "$manager install"
+	if command -v jq >/dev/null 2>&1; then
+		jq -r '.scripts // {} | keys[]' package.json 2>/dev/null | while read -r script; do
+			case "$script" in
+			dev | start | build | test | lint | typecheck | check | format | e2e)
+				command_line "$manager run $script"
+				;;
+			esac
+		done
+	fi
+fi
+
+if has_file go.mod; then
+	heading "Go"
+	command_line "go test ./..."
+	command_line "go vet ./..."
+	command -v golangci-lint >/dev/null 2>&1 && command_line "golangci-lint run"
+	command -v govulncheck >/dev/null 2>&1 && command_line "govulncheck ./..."
+	command -v gofumpt >/dev/null 2>&1 && command_line "gofumpt -w ."
+fi
+
+if has_file Cargo.toml; then
+	heading "Rust"
+	command_line "cargo test"
+	command_line "cargo clippy --all-targets --all-features -- -D warnings"
+	command_line "cargo fmt --check"
+	command -v cargo-nextest >/dev/null 2>&1 && command_line "cargo nextest run"
+	command -v cargo-audit >/dev/null 2>&1 && command_line "cargo audit"
+fi
+
+if has_any_file pyproject.toml setup.py requirements.txt uv.lock; then
+	heading "Python"
+	if command -v uv >/dev/null 2>&1; then
+		has_file pyproject.toml && command_line "uv sync"
+		command_line "uv run pytest"
+		command_line "uv run ruff check ."
+		command_line "uv run ruff format --check ."
+	else
+		command_line "python3 -m venv .venv"
+		command_line "python3 -m pip install -r requirements.txt"
+		command_line "pytest"
+	fi
+fi
+
+if has_any_file Dockerfile docker-compose.yml docker-compose.yaml compose.yml compose.yaml; then
+	heading "Containers"
+	command_line "docker compose config --quiet"
+	command_line "docker compose up --build"
+fi
+
+if has_any_file docker-compose.yml docker-compose.yaml compose.yml compose.yaml .env .envrc prisma/schema.prisma; then
+	heading "Databases"
+	command -v psql >/dev/null 2>&1 && command_line "psql \"\$DATABASE_URL\""
+	command -v redis-cli >/dev/null 2>&1 && command_line "redis-cli"
+	command -v sqlite3 >/dev/null 2>&1 && command_line "sqlite3 dev.db"
+fi
+
+if [[ -f .envrc ]]; then
+	heading "Direnv"
+	command_line "direnv allow"
+fi

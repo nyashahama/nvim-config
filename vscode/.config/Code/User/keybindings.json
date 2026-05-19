@@ -1,0 +1,14 @@
+[
+  {
+    "key": "ctrl+`",
+    "command": "workbench.action.terminal.toggleTerminal"
+  },
+  {
+    "key": "ctrl+shift+r",
+    "command": "workbench.action.reloadWindow"
+  },
+  {
+    "key": "ctrl+shift+g p",
+    "command": "githubPullRequests.focus"
+  }
+]

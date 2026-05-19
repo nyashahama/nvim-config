@@ -1,0 +1,13 @@
+set shell := ["bash", "-cu"]
+
+default:
+  just --list
+
+doctor:
+  dev-repo-doctor
+
+check-secrets:
+  gitleaks detect --source . --redact
+
+pre-commit:
+  pre-commit run --all-files

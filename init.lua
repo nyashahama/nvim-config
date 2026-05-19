@@ -12,6 +12,7 @@ vim.g.maplocalleader = ","
 vim.keymap.set("n", "<Space>", "<Nop>", { silent = true })
 
 require("core.options")
+require("core.dev")
 require("core.keymaps")
 require("lang.cpp").setup()
 require("lang.go").setup()

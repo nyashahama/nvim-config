@@ -1,0 +1,14 @@
+theme = Gruvbox Dark Hard
+font-family = JetBrainsMono Nerd Font
+font-size = 12
+window-padding-x = 6
+window-padding-y = 4
+window-padding-balance = true
+cursor-style = block
+cursor-style-blink = false
+copy-on-select = clipboard
+clipboard-read = ask
+clipboard-write = allow
+confirm-close-surface = false
+shell-integration = detect
+shell-integration-features = cursor,no-sudo,title,no-ssh-env,no-ssh-terminfo,path

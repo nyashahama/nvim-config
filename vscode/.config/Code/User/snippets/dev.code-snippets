@@ -1,0 +1,67 @@
+{
+  "TypeScript test": {
+    "scope": "typescript,javascript,typescriptreact,javascriptreact",
+    "prefix": "ttest",
+    "body": [
+      "test('${1:behavior}', async () => {",
+      "  ${2:// arrange}",
+      "",
+      "  ${3:// act}",
+      "",
+      "  ${4:// assert}",
+      "});"
+    ],
+    "description": "Small behavior-focused test"
+  },
+  "Go table test": {
+    "scope": "go",
+    "prefix": "gtable",
+    "body": [
+      "func Test${1:Name}(t *testing.T) {",
+      "\ttests := []struct {",
+      "\t\tname string",
+      "\t\twant ${2:string}",
+      "\t}{",
+      "\t\t{name: \"${3:case}\", want: ${4:\"value\"}},",
+      "\t}",
+      "",
+      "\tfor _, tt := range tests {",
+      "\t\tt.Run(tt.name, func(t *testing.T) {",
+      "\t\t\tgot := ${5:subject}()",
+      "\t\t\tif got != tt.want {",
+      "\t\t\t\tt.Fatalf(\"got %v, want %v\", got, tt.want)",
+      "\t\t\t}",
+      "\t\t})",
+      "\t}",
+      "}"
+    ],
+    "description": "Go table-driven test"
+  },
+  "Rust test module": {
+    "scope": "rust",
+    "prefix": "rtest",
+    "body": [
+      "#[cfg(test)]",
+      "mod tests {",
+      "    use super::*;",
+      "",
+      "    #[test]",
+      "    fn ${1:it_behaves_correctly}() {",
+      "        ${2:assert!(true);}",
+      "    }",
+      "}"
+    ],
+    "description": "Rust unit test module"
+  },
+  "Python pytest": {
+    "scope": "python",
+    "prefix": "pytest",
+    "body": [
+      "def test_${1:behavior}():",
+      "    ${2:result} = ${3:subject}()",
+      "",
+      "    assert ${2:result} == ${4:expected}"
+    ],
+    "description": "Small pytest test"
+  }
+}

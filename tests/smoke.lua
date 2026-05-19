@@ -4,6 +4,7 @@ dofile("init.lua")
 local expected_modules = {
   "core.options",
   "core.keymaps",
+  "core.dev",
   "core.autocmds",
   "core.commands",
   "lang.cpp",
@@ -30,8 +31,37 @@ end
 
 assert(has_normal_map("<C-p>"), "expected <C-p> file finder mapping")
 assert(has_normal_map("<leader>ff"), "expected <leader>ff file finder mapping")
+assert(has_normal_map("<leader>fp"), "expected <leader>fp project finder mapping")
 assert(has_normal_map("<leader>sg"), "expected <leader>sg live grep mapping")
+assert(has_normal_map("<leader>op"), "expected <leader>op PR status mapping")
+assert(has_normal_map("<leader>od"), "expected <leader>od repo doctor mapping")
+assert(has_normal_map("<leader>or"), "expected <leader>or PR reviews mapping")
+assert(has_normal_map("<leader>ob"), "expected <leader>ob backup mapping")
+assert(has_normal_map("<leader>os"), "expected <leader>os signing mapping")
+assert(has_normal_map("<leader>of"), "expected <leader>of font/theme mapping")
 assert(has_normal_map("<leader>xq"), "expected <leader>xq quickfix mapping")
+
+local expected_commands = {
+  "DevProject",
+  "DevDoctor",
+  "DevPr",
+  "DevChecks",
+  "DevReviews",
+  "DevOpenPr",
+  "DevUpdate",
+  "DevBackup",
+  "DevSigning",
+  "DevFonts",
+  "DevPerf",
+  "DbPsql",
+  "DbRedis",
+  "DbSqlite",
+  "NvimTrimLspLog",
+}
+
+for _, command in ipairs(expected_commands) do
+  assert(vim.fn.exists(":" .. command) == 2, string.format("expected :%s command", command))
+end
 
 vim.cmd("enew")
 vim.cmd("setfiletype go")

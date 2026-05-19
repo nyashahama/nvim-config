@@ -1,0 +1,171 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+required=(git zsh bash nvim tmux rg fzf stow ghostty code jq ssh)
+optional=(eza zoxide direnv mise starship delta shellcheck shfmt lazygit just hyperfine yq age pass gitleaks btop ncdu duf)
+
+check_any() {
+	local label="$1"
+	shift
+
+	for tool in "$@"; do
+		if command -v "$tool" >/dev/null 2>&1; then
+			printf '  ok      %s (%s)\n' "$label" "$tool"
+			return 0
+		fi
+	done
+
+	printf '  missing %s\n' "$label"
+}
+
+check_command() {
+	local label="$1"
+	shift
+
+	if "$@" >/dev/null 2>&1; then
+		printf '  ok      %s\n' "$label"
+	else
+		printf '  missing %s\n' "$label"
+	fi
+}
+
+check_zsh_command() {
+	local label="$1"
+	shift
+
+	if command -v zsh >/dev/null 2>&1 && zsh -i -c "$*" >/dev/null 2>&1; then
+		printf '  ok      %s\n' "$label"
+	else
+		printf '  missing %s\n' "$label"
+	fi
+}
+
+echo "Required tools:"
+for tool in "${required[@]}"; do
+	if command -v "$tool" >/dev/null 2>&1; then
+		printf '  ok      %s\n' "$tool"
+	else
+		printf '  missing %s\n' "$tool"
+	fi
+done
+
+echo
+echo "Optional tools:"
+check_any bat bat batcat
+check_any fd fd fdfind
+for tool in "${optional[@]}"; do
+	if command -v "$tool" >/dev/null 2>&1; then
+		printf '  ok      %s\n' "$tool"
+	else
+		printf '  missing %s\n' "$tool"
+	fi
+done
+check_any http http httpie
+check_any fd fd fdfind
+
+script_path="$(readlink -f "${BASH_SOURCE[0]}")"
+repo="$(cd "$(dirname "$script_path")/../../.." && pwd)"
+echo
+echo "Repository: $repo"
+
+echo
+echo "Shell:"
+printf '  default  %s\n' "$(getent passwd "$USER" | cut -d: -f7)"
+printf '  zshrc    %s\n' "$(readlink -f "$HOME/.zshrc" 2>/dev/null || echo missing)"
+printf '  bashrc   %s\n' "$(readlink -f "$HOME/.bashrc" 2>/dev/null || echo missing)"
+
+echo
+echo "Terminal:"
+printf '  TERMINAL             %s\n' "${TERMINAL:-unset}"
+printf '  x-terminal-emulator  %s\n' "$(readlink -f /usr/bin/x-terminal-emulator 2>/dev/null || echo missing)"
+if command -v dev-fonts >/dev/null 2>&1; then
+	dev-fonts --check | sed 's/^/  /'
+else
+	printf '  dev-fonts            missing\n'
+fi
+
+echo
+echo "SSH:"
+printf '  config               %s\n' "$(readlink -f "$HOME/.ssh/config" 2>/dev/null || echo missing)"
+if ssh-add -l >/dev/null 2>&1; then
+	printf '  agent keys           ok\n'
+else
+	printf '  agent keys           missing\n'
+fi
+if timeout 8 ssh -T git@github.com >/tmp/dotfiles-doctor-ssh.out 2>/tmp/dotfiles-doctor-ssh.err; then
+	printf '  github ssh           ok\n'
+elif grep -Eiq 'successfully authenticated|Hi .*You.ve successfully authenticated' /tmp/dotfiles-doctor-ssh.out /tmp/dotfiles-doctor-ssh.err 2>/dev/null; then
+	printf '  github ssh           ok\n'
+else
+	printf '  github ssh           check manually\n'
+fi
+
+echo
+echo "Editor:"
+printf '  VS Code settings     %s\n' "$(readlink -f "$HOME/.config/Code/User/settings.json" 2>/dev/null || echo missing)"
+printf '  VS Code extensions   %s installed\n' "$(code --list-extensions 2>/dev/null | wc -l | tr -d ' ')"
+printf '  Neovim config        %s\n' "$(readlink -f "$HOME/.config/nvim" 2>/dev/null || echo missing)"
+
+echo
+echo "Toolchains:"
+check_zsh_command "Node" "node --version"
+check_zsh_command "npm" "npm --version"
+check_zsh_command "corepack" "corepack --version"
+check_zsh_command "pnpm" "pnpm --version"
+check_zsh_command "yarn" "yarn --version"
+check_zsh_command "Go" "go version"
+check_zsh_command "gopls" "gopls version"
+check_zsh_command "gofumpt" "gofumpt --version"
+check_zsh_command "golangci-lint" "golangci-lint --version"
+check_zsh_command "govulncheck" "govulncheck -version"
+check_zsh_command "Delve" "dlv version"
+check_zsh_command "staticcheck" "staticcheck -version"
+check_zsh_command "actionlint" "actionlint -version"
+check_zsh_command "Rust" "rustc --version"
+check_zsh_command "Cargo" "cargo --version"
+check_zsh_command "cargo-audit" "cargo audit --version"
+check_zsh_command "sccache" "sccache --version"
+check_zsh_command "rust-analyzer" "rust-analyzer --version"
+check_zsh_command "Python" "python3 --version"
+check_zsh_command "uv" "uv --version"
+check_zsh_command "ruff" "ruff --version"
+check_zsh_command "pre-commit" "pre-commit --version"
+check_zsh_command "gitleaks" "gitleaks version"
+check_zsh_command "devcontainer CLI" "devcontainer --version"
+check_command "Docker" docker --version
+check_command "Docker Compose" docker compose version
+check_command "PostgreSQL CLI" psql --version
+check_command "Redis CLI" redis-cli --version
+check_command "SQLite CLI" sqlite3 --version
+check_command "dev-backup" dev-backup --check
+check_command "dev-fonts" dev-fonts --check
+check_command "dev-gh aliases" dev-gh aliases --check
+check_command "dev-perf" dev-perf --check
+check_command "dev-signing-doctor" dev-signing-doctor --check
+check_command "GitHub CLI auth" gh auth status
+
+echo
+echo "Git:"
+printf '  commit template      %s\n' "$(git config --global --get commit.template 2>/dev/null || echo missing)"
+printf '  commit signing       %s\n' "$(git config --global --get commit.gpgsign 2>/dev/null || echo missing)"
+printf '  signing format       %s\n' "$(git config --global --get gpg.format 2>/dev/null || echo missing)"
+printf '  signing key          %s\n' "$(git config --global --get user.signingkey 2>/dev/null || echo missing)"
+printf '  allowed signers      %s\n' "$(git config --global --get gpg.ssh.allowedSignersFile 2>/dev/null || echo missing)"
+
+echo
+echo "mise:"
+if command -v mise >/dev/null 2>&1; then
+	printf '  version              %s\n' "$(mise --version)"
+	if command -v zsh >/dev/null 2>&1 && zsh -i -c 'mise doctor | rg -q "activated: yes"' >/dev/null 2>&1; then
+		printf '  zsh activation       yes\n'
+	else
+		printf '  zsh activation       no\n'
+	fi
+else
+	printf '  missing mise\n'
+fi
+
+if [[ -f "$repo/tests/smoke.lua" ]] && command -v nvim >/dev/null 2>&1; then
+	nvim --headless -u NONE -l "$repo/tests/smoke.lua"
+	echo "Neovim smoke test: ok"
+fi

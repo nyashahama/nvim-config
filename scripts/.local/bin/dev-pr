@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+	cat <<'USAGE'
+Usage:
+  dev-pr
+
+Shows local branch/upstream state and the current GitHub PR, if one exists.
+USAGE
+}
+
+case "${1:-}" in
+-h | --help)
+	usage
+	exit 0
+	;;
+esac
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+	echo "not inside a git repository" >&2
+	exit 2
+fi
+
+branch="$(git branch --show-current 2>/dev/null || true)"
+upstream="$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)"
+
+printf 'branch:  %s\n' "${branch:-detached}"
+printf 'upstream: %s\n' "${upstream:-none}"
+
+if [[ -n "$upstream" ]]; then
+	read -r ahead behind < <(git rev-list --left-right --count "$upstream...HEAD")
+	printf 'ahead:   %s\n' "$ahead"
+	printf 'behind:  %s\n' "$behind"
+else
+	printf 'ahead:   unknown\n'
+	printf 'behind:  unknown\n'
+fi
+
+printf '\n'
+git status --short --branch
+
+if ! command -v gh >/dev/null 2>&1; then
+	printf '\nGitHub CLI is not installed.\n'
+	exit 0
+fi
+
+if ! gh auth status >/dev/null 2>&1; then
+	printf '\nGitHub CLI is not authenticated.\n'
+	exit 0
+fi
+
+if ! gh pr view >/tmp/dev-pr-view.json 2>/tmp/dev-pr-view.err; then
+	printf '\nNo current PR found for this branch.\n'
+	exit 0
+fi
+
+printf '\n'
+gh pr view \
+	--json number,title,url,state,isDraft,mergeStateStatus,reviewDecision,headRefName,baseRefName \
+	--jq '"PR #\(.number): \(.title)\n\(.url)\nstate=\(.state) draft=\(.isDraft) merge=\(.mergeStateStatus // "UNKNOWN") review=\(.reviewDecision // "UNKNOWN")\n\(.headRefName) -> \(.baseRefName)"'
+
+printf '\nChecks:\n'
+gh pr checks --compact || true

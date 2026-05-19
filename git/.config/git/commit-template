@@ -1,0 +1,10 @@
+# <type>(<scope>): <summary>
+#
+# Body: explain why this change exists and any tradeoffs.
+#
+# Checks:
+# - [ ] tests or manual verification run
+# - [ ] docs/config updated when behavior changed
+# - [ ] secrets, tokens, private keys, and local notes excluded
+#
+# Common types: feat fix docs test refactor perf chore ci build

@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+	cat <<'USAGE'
+Usage:
+  dev-gh status
+  dev-gh checks
+  dev-gh reviews
+  dev-gh open
+  dev-gh runs
+  dev-gh aliases --check
+  dev-gh aliases --apply
+
+Small GitHub workflow wrapper for the commands used every day: PR status,
+checks, reviews/comments, browser open/create, recent workflow runs, and
+reproducible gh aliases.
+USAGE
+}
+
+command_name="${1:-status}"
+shift || true
+
+require_gh() {
+	if ! command -v gh >/dev/null 2>&1; then
+		printf 'GitHub CLI is not installed.\n' >&2
+		exit 127
+	fi
+	if ! gh auth status >/dev/null 2>&1; then
+		printf 'GitHub CLI is not authenticated.\n' >&2
+		exit 2
+	fi
+}
+
+require_repo() {
+	if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+		printf 'not inside a git repository\n' >&2
+		exit 2
+	fi
+}
+
+current_pr_number() {
+	gh pr view --json number --jq '.number' 2>/dev/null
+}
+
+current_repo() {
+	gh repo view --json owner,name --jq '.owner.login + "/" + .name'
+}
+
+alias_lines() {
+	cat <<'ALIASES'
+gh alias set pr-status '!dev-pr'
+gh alias set pr-checks '!dev-gh checks'
+gh alias set pr-reviews '!dev-gh reviews'
+gh alias set pr-open '!dev-gh open'
+gh alias set runs '!dev-gh runs'
+ALIASES
+}
+
+case "$command_name" in
+status)
+	require_repo
+	exec dev-pr
+	;;
+checks)
+	require_gh
+	require_repo
+	if current_pr_number >/dev/null; then
+		gh pr checks --watch=false
+	else
+		printf 'No current PR found; showing recent workflow runs.\n\n'
+		gh run list --limit 10
+	fi
+	;;
+reviews)
+	require_gh
+	require_repo
+	number="$(current_pr_number || true)"
+	if [[ -z "$number" ]]; then
+		printf 'No current PR found for this branch.\n'
+		exit 0
+	fi
+	repo="$(current_repo)"
+	gh pr view "$number" \
+		--json number,title,url,reviewDecision,mergeStateStatus \
+		--jq '"PR #\(.number): \(.title)\n\(.url)\nmerge=\(.mergeStateStatus // "UNKNOWN") review=\(.reviewDecision // "UNKNOWN")"'
+	printf '\nFormal reviews:\n'
+	gh api "repos/$repo/pulls/$number/reviews" \
+		--jq 'if length == 0 then "  none" else .[] | "  \(.state) \(.user.login) \(.submitted_at // "") \(.html_url // "")" end'
+	printf '\nTop-level PR comments:\n'
+	gh api "repos/$repo/issues/$number/comments" \
+		--jq 'if length == 0 then "  none" else .[] | "  \(.user.login) \(.created_at): \((.body // "") | gsub("\r"; " ") | split("\n")[0] | .[0:140])" end'
+	printf '\nInline review comments:\n'
+	gh api "repos/$repo/pulls/$number/comments" \
+		--jq 'if length == 0 then "  none" else .[] | "  \(.user.login) \(.path):\(.line // .original_line // "?") \(.created_at): \((.body // "") | gsub("\r"; " ") | split("\n")[0] | .[0:120])" end'
+	;;
+open)
+	require_gh
+	require_repo
+	if gh pr view --web >/dev/null 2>&1; then
+		exit 0
+	fi
+	gh pr create --web --fill
+	;;
+runs)
+	require_gh
+	require_repo
+	gh run list --limit 10
+	;;
+aliases)
+	mode="${1:---check}"
+	case "$mode" in
+	--check)
+		alias_lines
+		;;
+	--apply)
+		require_gh
+		gh alias set pr-status '!dev-pr'
+		gh alias set pr-checks '!dev-gh checks'
+		gh alias set pr-reviews '!dev-gh reviews'
+		gh alias set pr-open '!dev-gh open'
+		gh alias set runs '!dev-gh runs'
+		;;
+	*)
+		usage >&2
+		exit 2
+		;;
+	esac
+	;;
+-h | --help)
+	usage
+	;;
+*)
+	usage >&2
+	exit 2
+	;;
+esac

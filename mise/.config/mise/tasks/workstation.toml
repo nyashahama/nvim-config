@@ -1,0 +1,19 @@
+[tasks.test]
+description = "Run dotfiles tests"
+run = "make -C ~/.dotfiles test"
+
+[tasks.doctor]
+description = "Audit workstation setup"
+run = "~/.dotfiles/scripts/.local/bin/dotfiles-doctor"
+
+[tasks.check]
+description = "Run bootstrap check, doctor, and tests"
+run = "make -C ~/.dotfiles check"
+
+[tasks.update-check]
+description = "Preview workstation update commands"
+run = "~/.dotfiles/scripts/.local/bin/dev-update --check"
+
+[tasks.update]
+description = "Apply workstation updates"
+run = "~/.dotfiles/scripts/.local/bin/dev-update --apply"

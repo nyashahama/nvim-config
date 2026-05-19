@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+	cat <<'USAGE'
+Usage:
+  dev-perf --check
+  dev-perf --run
+
+Runs a lightweight workstation performance audit. Check mode prints the probes
+without measuring them. Run mode measures startup and command latency.
+USAGE
+}
+
+mode="${1:---check}"
+case "$mode" in
+--check | --run) ;;
+-h | --help)
+	usage
+	exit 0
+	;;
+*)
+	usage >&2
+	exit 2
+	;;
+esac
+
+probes=(
+	"zsh startup::zsh -i -c exit"
+	"neovim startup::nvim --headless +qa"
+	"ripgrep file scan::rg --files >/dev/null"
+	"fd file scan::fd --type f >/dev/null 2>/dev/null || fdfind --type f >/dev/null"
+	"docker version::docker version >/dev/null"
+	"node version::zsh -i -c 'node --version >/dev/null'"
+	"go version::zsh -i -c 'go version >/dev/null'"
+	"cargo version::zsh -i -c 'cargo --version >/dev/null'"
+	"uv version::zsh -i -c 'uv --version >/dev/null'"
+)
+
+if [[ "$mode" == "--check" ]]; then
+	printf 'Performance probes dev-perf --run will measure:\n'
+	for probe in "${probes[@]}"; do
+		printf '  %s\n' "${probe%%::*}"
+	done
+	exit 0
+fi
+
+tmpdir="$(mktemp -d)"
+trap 'rm -rf "$tmpdir"' EXIT
+
+for probe in "${probes[@]}"; do
+	label="${probe%%::*}"
+	command_line="${probe#*::}"
+	printf '%-22s ' "$label"
+	if /usr/bin/time -f '%e s' bash -lc "$command_line" >"$tmpdir/$label.out" 2>"$tmpdir/$label.err"; then
+		tail -n 1 "$tmpdir/$label.err"
+	else
+		printf 'failed\n'
+		sed -n '1,4p' "$tmpdir/$label.err" | sed 's/^/  /'
+	fi
+done

@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+	cat <<'USAGE'
+Usage:
+  dev-fonts --check
+  dev-fonts --install
+
+Checks or installs the preferred terminal/editor font layer. Install mode
+downloads JetBrainsMono Nerd Font into ~/.local/share/fonts and refreshes
+fontconfig.
+USAGE
+}
+
+mode="${1:---check}"
+case "$mode" in
+--check | --install) ;;
+-h | --help)
+	usage
+	exit 0
+	;;
+*)
+	usage >&2
+	exit 2
+	;;
+esac
+
+font_family="${DEV_FONT_FAMILY:-JetBrainsMono Nerd Font}"
+font_match_pattern="${DEV_FONT_MATCH_PATTERN:-JetBrainsMono.*Nerd|JetBrains Mono.*Nerd}"
+font_url="${DEV_FONT_URL:-https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.tar.xz}"
+font_dir="${DEV_FONT_DIR:-$HOME/.local/share/fonts/JetBrainsMonoNerdFont}"
+ghostty_config="${DEV_GHOSTTY_CONFIG:-$HOME/.config/ghostty/config}"
+
+has_font() {
+	local fonts
+	fonts="$(fc-list 2>/dev/null || true)"
+	rg -qi "$font_match_pattern" <<<"$fonts"
+}
+
+check_font() {
+	if has_font; then
+		printf 'font                  ok (%s)\n' "$font_family"
+	else
+		printf 'font                  missing (%s)\n' "$font_family"
+	fi
+}
+
+check_ghostty() {
+	if ! command -v ghostty >/dev/null 2>&1; then
+		printf 'ghostty config        ghostty missing\n'
+		return 0
+	fi
+
+	if [[ ! -f "$ghostty_config" && ! -L "$ghostty_config" ]]; then
+		printf 'ghostty config        missing\n'
+		return 0
+	fi
+
+	if ghostty +validate-config --config-file="$ghostty_config" >/dev/null 2>&1; then
+		printf 'ghostty config        ok\n'
+	else
+		printf 'ghostty config        invalid\n'
+	fi
+}
+
+if [[ "$mode" == "--install" ]]; then
+	tmpdir="$(mktemp -d)"
+	trap 'rm -rf "$tmpdir"' EXIT
+
+	mkdir -p "$font_dir"
+	curl -fL "$font_url" -o "$tmpdir/JetBrainsMono.tar.xz"
+	tar -xJf "$tmpdir/JetBrainsMono.tar.xz" -C "$tmpdir"
+	find "$tmpdir" -maxdepth 1 -type f \( -name '*.ttf' -o -name '*.otf' \) -exec cp -f {} "$font_dir/" \;
+	fc-cache -f "$HOME/.local/share/fonts" >/dev/null
+fi
+
+printf 'Font/theme layer:\n'
+check_font
+check_ghostty

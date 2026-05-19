@@ -53,6 +53,7 @@ return {
       spec = {
         { "<leader>f", group = "find" },
         { "<leader>g", group = "git" },
+        { "<leader>o", group = "ops" },
         { "<leader>s", group = "search/splits" },
         { "<leader>d", group = "debug" },
         { "<leader>x", group = "diagnostics/quickfix" },
