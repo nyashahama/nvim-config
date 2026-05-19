@@ -27,3 +27,7 @@ zstyle ':completion:*' cache-path "${XDG_CACHE_HOME:-$HOME/.cache}/zsh/zcompcach
 zcompdump="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/zcompdump-$ZSH_VERSION"
 mkdir -p "${zcompdump:h}" "${XDG_CACHE_HOME:-$HOME/.cache}/zsh/zcompcache"
 compinit -d "$zcompdump"
+
+# Keep Ctrl-R available for reverse history search when EDITOR=nvim selects vi keymaps.
+bindkey -M main '^R' history-incremental-search-backward
+bindkey -M viins '^R' history-incremental-search-backward
